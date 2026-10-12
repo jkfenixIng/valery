@@ -47,5 +47,7 @@ export const requireDatabaseUrl = (config: AppConfig): string => {
 
 export const config = createConfig(process.env);
 
+export const getSecurityEnvironment = (): AppConfig['NODE_ENV'] => config.NODE_ENV;
+
 export const hasDatabaseUrl = (appConfig: AppConfig): boolean =>
   appConfig.DATABASE_URL !== undefined;

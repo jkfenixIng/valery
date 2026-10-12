@@ -3,14 +3,15 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
 const port = 3100;
-const nextExecutable = fileURLToPath(
-  new URL('../node_modules/next/dist/bin/next', import.meta.url),
+const standaloneServer = fileURLToPath(
+  new URL('../.next/standalone/server.js', import.meta.url),
 );
 const expectedHeaders = {
   'content-security-policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    "'strict-dynamic'",
+    "style-src 'self'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "connect-src 'self'",
@@ -25,15 +26,11 @@ const expectedHeaders = {
   'x-frame-options': ['DENY'],
 };
 
-const server = spawn(
-  process.execPath,
-  [nextExecutable, 'start', '--port', String(port)],
-  {
-    env: { ...process.env, NODE_ENV: 'production' },
-    stdio: 'ignore',
-    windowsHide: true,
-  },
-);
+const server = spawn(process.execPath, [standaloneServer], {
+  env: { PORT: String(port) },
+  stdio: 'ignore',
+  windowsHide: true,
+});
 const serverExit = once(server, 'exit');
 
 const stopServer = () => {
@@ -64,8 +61,25 @@ try {
       const contentSecurityPolicy = response.headers.get(
         'content-security-policy',
       );
-      if (contentSecurityPolicy?.includes("'unsafe-eval'")) {
-        throw new Error('Production CSP must not include unsafe-eval.');
+      const secondResponse = await fetch(`http://127.0.0.1:${port}/design`);
+      const secondContentSecurityPolicy = secondResponse.headers.get(
+        'content-security-policy',
+      );
+      const noncePattern = /'nonce-([^']+)'/;
+      const firstNonce = contentSecurityPolicy?.match(noncePattern)?.[1];
+      const secondNonce = secondContentSecurityPolicy?.match(noncePattern)?.[1];
+
+      if (!firstNonce || !secondNonce || firstNonce === secondNonce) {
+        throw new Error('Each response must emit a unique CSP nonce.');
+      }
+
+      if (
+        contentSecurityPolicy?.includes("'unsafe-inline'") ||
+        contentSecurityPolicy?.includes("'unsafe-eval'")
+      ) {
+        throw new Error(
+          'Production CSP must not include unsafe-inline or unsafe-eval.',
+        );
       }
 
       if (response.headers.has('strict-transport-security')) {

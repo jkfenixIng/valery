@@ -1,6 +1,5 @@
 import type { NextConfig } from 'next';
 
-import { config } from './src/config/env';
 import { createSecurityHeaders } from './src/config/security';
 
 const nextConfig: NextConfig = {
@@ -9,7 +8,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        headers: createSecurityHeaders(config.NODE_ENV),
+        headers: createSecurityHeaders(),
       },
     ];
   },

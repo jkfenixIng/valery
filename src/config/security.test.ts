@@ -1,23 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSecurityHeaders } from './security';
+import {
+  createContentSecurityPolicy,
+  createSecurityHeaders,
+} from './security';
 
 describe('security headers', () => {
-  it('includes unsafe-eval only in development', () => {
-    const developmentPolicy = createSecurityHeaders('development').find(
-      (header) => header.key === 'Content-Security-Policy',
-    )?.value;
-    const productionPolicy = createSecurityHeaders('production').find(
-      (header) => header.key === 'Content-Security-Policy',
-    )?.value;
+  it('creates a strict nonce CSP without production inline or eval sources', () => {
+    const policy = createContentSecurityPolicy('production', 'request-nonce');
 
-    expect(developmentPolicy).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'");
-    expect(productionPolicy).toContain("script-src 'self' 'unsafe-inline'");
-    expect(productionPolicy).not.toContain("'unsafe-eval'");
+    expect(policy).toContain(
+      "script-src 'self' 'nonce-request-nonce' 'strict-dynamic'",
+    );
+    expect(policy).toContain("style-src 'self' 'nonce-request-nonce'");
+    expect(policy).not.toContain("'unsafe-inline'");
+    expect(policy).not.toContain("'unsafe-eval'");
   });
 
-  it('uses baseline browser protections without HSTS', () => {
-    const headers = createSecurityHeaders('production');
+  it('includes unsafe-eval only in development', () => {
+    const developmentPolicy = createContentSecurityPolicy(
+      'development',
+      'request-nonce',
+    );
+
+    expect(developmentPolicy).toContain("'unsafe-eval'");
+    expect(developmentPolicy).not.toContain("'unsafe-inline'");
+  });
+
+  it('uses static browser protections without CSP or HSTS', () => {
+    const headers = createSecurityHeaders();
 
     expect(headers).toContainEqual({
       key: 'X-Content-Type-Options',
@@ -27,6 +38,9 @@ describe('security headers', () => {
       key: 'X-Frame-Options',
       value: 'DENY',
     });
+    expect(
+      headers.some((header) => header.key === 'Content-Security-Policy'),
+    ).toBe(false);
     expect(headers.some((header) => header.key === 'Strict-Transport-Security')).toBe(
       false,
     );

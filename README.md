@@ -51,7 +51,7 @@ Set `DATABASE_URL` in `.env.local` to your native PostgreSQL development databas
 
 ## Security baseline
 
-Global response headers include a CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production does not emit it. CSP nonces are a separate pending runtime/rendering change, so the current static policy intentionally retains `unsafe-inline`. HSTS is intentionally deferred until an HTTPS deployment is approved.
+Global response headers include a per-request nonce CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production emits neither `unsafe-eval` nor `unsafe-inline`. Nonces require dynamic rendering so Next can inject them during SSR. HSTS is intentionally deferred until an HTTPS deployment is approved.
 
 Report a vulnerability privately as described in [SECURITY.md](./SECURITY.md). The repository is local-first Phase 0 and does not offer a security SLA, bounty, or public production service.
 

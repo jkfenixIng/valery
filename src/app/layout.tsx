@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
 import { ThemeProvider } from '@/shared/ui';
@@ -10,9 +11,11 @@ export const metadata: Metadata = {
   description: 'Valery business workspace',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  await connection();
+
   return (
     <html lang="es-CO" suppressHydrationWarning>
       <body>
