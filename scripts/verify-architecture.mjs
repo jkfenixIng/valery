@@ -16,7 +16,7 @@ const negativeFixtures = [
     'tests/architecture/fixtures/invalid-domain',
   ],
   [
-    'presentation shared domain import',
+    'presentation shared-domain import',
     'presentation-does-not-bypass-composition',
     'tests/architecture/fixtures/invalid-presentation',
   ],

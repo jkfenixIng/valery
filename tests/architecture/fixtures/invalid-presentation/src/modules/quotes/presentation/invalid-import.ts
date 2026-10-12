@@ -1,3 +1,3 @@
-import { createQuote } from '../application/createQuote';
+import { Money } from '../../../shared/domain/Money';
 
-export const invalidImportFixture = createQuote;
+export const invalidImportFixture = Money;
