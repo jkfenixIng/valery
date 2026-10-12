@@ -35,6 +35,18 @@ docker-compose.local.yml
 postgres-data/
 pgdata/
 
+# Local AI assistant runtime state (keep project configuration versioned)
+.opencode/cache/
+.opencode/logs/
+.opencode/sessions/
+
+# PERXIA local runtime artifacts (keep project state documents versioned)
+.perxia/cache/
+.perxia/exports/
+.perxia/generated/
+.perxia/runtime/
+.perxia/transcripts/
+
 # Editors and operating systems
 .vscode/
 .idea/
