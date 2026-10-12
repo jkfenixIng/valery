@@ -40,12 +40,8 @@ pgdata/
 .opencode/logs/
 .opencode/sessions/
 
-# PERXIA local runtime artifacts (keep project state documents versioned)
-.perxia/cache/
-.perxia/exports/
-.perxia/generated/
-.perxia/runtime/
-.perxia/transcripts/
+# PERXIA operational agent artifacts
+.perxia/
 
 # Editors and operating systems
 .vscode/

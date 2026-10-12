@@ -1,5 +1,0 @@
-# Estado
-
-ODD UI/design-system Fase 0 is implemented on `devlocal`: `next-themes` supports light/dark/system themes, semantic CSS tokens define both modes, shared primitives live in `src/shared/ui`, and `/design` demonstrates required component states with accessible, mobile-first controls. ADR-008 is exclusively the local UI decision.
-
-ODD security/supply-chain baseline: ADR-009 documents global headers and the static CSP. Production excludes `unsafe-eval`, development permits it only for tooling, and the HTTP smoke test asserts every critical emitted directive; HSTS remains deferred until HTTPS hosting. CSP nonces remain a separate pending runtime/rendering change, so `unsafe-inline` is intentionally unchanged. `verify` stays local and reproducible; CI runs dependency audit and SHA-pinned Gitleaks only on `develop` pushes and pull requests, never on `devlocal`. The local `scan:secrets` command is opt-in and detects an installed Gitleaks binary. No hosting, PWA, auth, DB/schema/migration, or product UI change belongs to this cut.
