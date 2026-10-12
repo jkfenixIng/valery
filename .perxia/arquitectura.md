@@ -8,5 +8,6 @@
 - Native Windows PostgreSQL is the local runtime. `docker-compose.yml` is a PostgreSQL-only Compose Spec contract for future Linux CI, not a local runtime or deployment.
 - The local UI system uses class-based `next-themes`; semantic tokens live in `src/app/globals.css`, while reusable presentational primitives live in `src/shared/ui`. It is permitted under dependency-cruiser because it contains no domain, application, or infrastructure imports.
 - Browser security headers are built in `src/config`: production excludes CSP `unsafe-eval`; development may include it for Next tooling. HSTS remains deferred until HTTPS hosting exists.
-- Gitleaks configuration is opt-in because its executable is not yet provisioned reproducibly on Windows and CI; dependency audit is part of `verify`.
+- `verify` keeps reproducible local checks only: it includes the production HTTP security-header smoke test but not dependency audit or secret scanning. On `develop` pushes and pull requests, CI runs `pnpm audit:dependencies` and the SHA-pinned official Gitleaks action; the workflow does not listen to `devlocal`. `scan:secrets` remains an opt-in local command that detects an installed Gitleaks binary.
+- CSP nonces remain pending as a separate runtime/rendering change. This static policy deliberately keeps `unsafe-inline`; production excludes `unsafe-eval` and the smoke test asserts all critical emitted directives.
 - Hosting, deployment, PWA, Better Auth, and product business flows remain deferred.

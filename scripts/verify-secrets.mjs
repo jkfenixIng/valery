@@ -5,7 +5,9 @@ const command = process.platform === 'win32' ? 'where.exe' : 'which';
 try {
   execFileSync(command, ['gitleaks'], { stdio: 'ignore', windowsHide: true });
 } catch {
-  console.error('gitleaks is required. Install the pinned CI tool before running this check.');
+  console.error(
+    'gitleaks is required. Install the Gitleaks binary before running this opt-in check.',
+  );
   process.exit(1);
 }
 
