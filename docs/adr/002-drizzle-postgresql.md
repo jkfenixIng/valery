@@ -1,4 +1,4 @@
-# ADR-002: Adopt Drizzle for a future local PostgreSQL adapter
+# ADR-002: Use Drizzle with native Windows PostgreSQL for local persistence
 
 - **Status**: Accepted
 - **Date**: 2026-10-12
@@ -6,17 +6,25 @@
 - **Tags**: data, portability
 
 ## Context
-Future persistence needs a typed PostgreSQL adapter without leaking ORM concerns into business code.
+
+ODD-0.5 introduces the first PostgreSQL persistence adapter. Daily development runs against PostgreSQL installed natively on Windows; ORM and driver concerns must remain in infrastructure.
 
 ## Decision
-Use Drizzle ORM and drizzle-kit only when the PostgreSQL local adapter is implemented, behind application ports.
+
+Use Drizzle ORM, drizzle-kit, and `pg` in `src/shared/infrastructure/db`. `DATABASE_URL` is validated centrally and required when that adapter is loaded. Drizzle generates migrations; the generated migration is versioned without manual edits.
+
+`docker-compose.yml` is a PostgreSQL-only Compose Spec contract for later Linux CI validation. It is versioned but not run locally. This cut has no Docker Desktop requirement, application container, deployment, hosting, VPS, Neon, or CI Docker job.
 
 ## Alternatives considered
+
 - SQL in domain or application: rejected because it violates layer boundaries.
-- Adding an ORM now: rejected because no database behavior is in this slice.
+- Docker as the daily Windows database runtime: rejected because native PostgreSQL is the approved local runtime.
+- Managed database or deployment now: rejected because infrastructure delivery is out of scope.
 
 ## Consequences
-No database package, schema, migration, or connection exists in ODD-0.1..0.4.
+
+The F0 schema, migrator, and idempotent seed are infrastructure-only. Dependency-cruiser prohibits `drizzle-orm` and `pg` imports from domain and application. PostgreSQL integration tests run only when `DATABASE_URL` is available.
 
 ## Verification
-Dependency-cruiser prohibits ORM imports from domain and application.
+
+`pnpm verify` checks unit, configuration, architecture, and build gates. A local database enables `db:migrate`, `db:seed`, and PostgreSQL integration tests; Compose syntax can be checked without starting containers when the Docker CLI supports it.
