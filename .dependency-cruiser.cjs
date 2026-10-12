@@ -16,30 +16,41 @@ module.exports = {
     {
       name: 'domain-is-framework-free',
       severity: 'error',
-      from: { path: '^src/(modules/[^/]+/|shared/)domain/' },
+      from: { path: '(^|/)src/(modules/[^/]+/|shared/)domain/' },
       to: {
-        path: '(^src/(app|composition|config|modules/[^/]+/(application|infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
+        path: '((^|/)src/(app|composition|config|modules/[^/]+/(application|infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
       },
     },
     {
       name: 'application-depends-inward',
       severity: 'error',
-      from: { path: '^src/modules/[^/]+/application/' },
+      from: { path: '(^|/)src/modules/[^/]+/application/' },
       to: {
-        path: '(^src/(app|composition|config|modules/[^/]+/(infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
+        path: '((^|/)src/(app|composition|config|modules/[^/]+/(infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
       },
     },
     {
       name: 'infrastructure-does-not-import-presentation',
       severity: 'error',
-      from: { path: '^src/(modules/[^/]+/|shared/)infrastructure/' },
-      to: { path: '^src/(app|modules/[^/]+/presentation)/' },
+      from: { path: '(^|/)src/(modules/[^/]+/|shared/)infrastructure/' },
+      to: { path: '(^|/)src/(app|modules/[^/]+/presentation)/' },
     },
     {
-      name: 'presentation-does-not-import-infrastructure',
+      name: 'presentation-does-not-bypass-composition',
       severity: 'error',
-      from: { path: '^src/(app|modules/[^/]+/presentation)/' },
-      to: { path: '^src/(modules/[^/]+/|shared/)infrastructure/' },
+      from: { path: '(^|/)src/(app|modules/[^/]+/presentation)/' },
+      to: {
+        path: '(^|/)src/(modules/[^/]+/(application|infrastructure)|shared/(application|domain|infrastructure))/',
+      },
+    },
+    {
+      name: 'presentation-does-not-import-other-presentation',
+      severity: 'error',
+      from: { path: '(^|/)src/modules/([^/]+)/presentation/' },
+      to: {
+        path: '(^|/)src/modules/[^/]+/presentation/',
+        pathNot: '(^|/)src/modules/$2/presentation/',
+      },
     },
   ],
   options: {

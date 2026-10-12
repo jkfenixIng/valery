@@ -1,3 +1,3 @@
-import 'next/server';
+import { Money } from '@/shared/domain/Money';
 
-export const invalidImportFixture = true;
+export const invalidImportFixture = Money;

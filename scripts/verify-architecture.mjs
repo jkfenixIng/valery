@@ -1,14 +1,19 @@
 import { execFileSync } from 'node:child_process';
 
-const fixture = 'tests/architecture/fixtures/invalid-domain';
+const fixtures = [
+  'tests/architecture/fixtures/invalid-domain',
+  'tests/architecture/fixtures/invalid-presentation',
+];
 
-try {
-  execFileSync('depcruise', ['--validate', '.dependency-cruiser.cjs', fixture], {
-    stdio: 'pipe',
-  });
-} catch {
-  process.exit(0);
+for (const fixture of fixtures) {
+  try {
+    execFileSync('depcruise', ['--validate', '.dependency-cruiser.cjs', fixture], {
+      stdio: 'pipe',
+    });
+  } catch {
+    continue;
+  }
+
+  console.error(`Architecture fixture unexpectedly passed: ${fixture}`);
+  process.exit(1);
 }
-
-console.error('Architecture fixture unexpectedly passed.');
-process.exit(1);
