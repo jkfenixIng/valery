@@ -6,4 +6,7 @@
 - Drizzle, `pg`, and PostgreSQL are implemented only in `src/shared/infrastructure/db`; domain and application cannot import those libraries.
 - Environment access belongs exclusively to `src/config`; `DATABASE_URL` validates the `postgresql://` scheme and is required when the database adapter loads. The architecture gate rejects direct `process.env` reads outside that directory.
 - Native Windows PostgreSQL is the local runtime. `docker-compose.yml` is a PostgreSQL-only Compose Spec contract for future Linux CI, not a local runtime or deployment.
-- Hosting, deployment, Docker runtime validation, PWA, Better Auth, and complex UI are deferred by ADR-006.
+- The local UI system uses class-based `next-themes`; semantic tokens live in `src/app/globals.css`, while reusable presentational primitives live in `src/shared/ui`. It is permitted under dependency-cruiser because it contains no domain, application, or infrastructure imports.
+- Browser security headers are built in `src/config`: production excludes CSP `unsafe-eval`; development may include it for Next tooling. HSTS remains deferred until HTTPS hosting exists.
+- Gitleaks configuration is opt-in because its executable is not yet provisioned reproducibly on Windows and CI; dependency audit is part of `verify`.
+- Hosting, deployment, PWA, Better Auth, and product business flows remain deferred.
