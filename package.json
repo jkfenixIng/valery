@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:architecture": "depcruise --validate .dependency-cruiser.cjs src && node scripts/verify-architecture.mjs",
+    "test:architecture": "depcruise --validate .dependency-cruiser.cjs src && node scripts/verify-architecture.mjs && node scripts/verify-environment-access.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/shared/infrastructure/db/migrate.ts",
     "db:seed": "tsx src/shared/infrastructure/db/seed.ts",

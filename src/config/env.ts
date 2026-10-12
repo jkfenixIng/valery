@@ -46,3 +46,6 @@ export const requireDatabaseUrl = (config: AppConfig): string => {
 };
 
 export const config = createConfig(process.env);
+
+export const hasDatabaseUrl = (appConfig: AppConfig): boolean =>
+  appConfig.DATABASE_URL !== undefined;

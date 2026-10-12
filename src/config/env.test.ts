@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConfigurationError, createConfig, requireDatabaseUrl } from './env';
+import {
+  ConfigurationError,
+  createConfig,
+  hasDatabaseUrl,
+  requireDatabaseUrl,
+} from './env';
 
 describe('environment configuration', () => {
   it('rejects a missing database URL when the database adapter requests it', () => {
@@ -19,6 +24,11 @@ describe('environment configuration', () => {
     expect(requireDatabaseUrl(config)).toBe(
       'postgresql://valery_dev:valery_dev@localhost:5432/valery_dev',
     );
+    expect(hasDatabaseUrl(config)).toBe(true);
+  });
+
+  it('reports that a missing database URL cannot run database workflows', () => {
+    expect(hasDatabaseUrl(createConfig({ NODE_ENV: 'test' }))).toBe(false);
   });
 
   it('rejects non-PostgreSQL database URLs', () => {

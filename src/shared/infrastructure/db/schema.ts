@@ -8,6 +8,7 @@ import {
   numeric,
   pgTable,
   text,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -44,6 +45,7 @@ export const supplies = pgTable(
     ),
     check('supplies_name_nonempty', sql`length(trim(${table.name})) > 0`),
     check('supplies_unit_nonempty', sql`length(trim(${table.unit})) > 0`),
+    unique('supplies_category_id_name_unique').on(table.categoryId, table.name),
   ],
 );
 
@@ -69,6 +71,7 @@ export const products = pgTable(
       sql`${table.marginBps} BETWEEN 0 AND 10000`,
     ),
     check('products_name_nonempty', sql`length(trim(${table.name})) > 0`),
+    unique('products_category_id_name_unique').on(table.categoryId, table.name),
     check(
       'products_description_nonempty',
       sql`length(trim(${table.description})) > 0`,

@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { closeDatabase, database } from './client';
 import {
   categories,
@@ -7,7 +9,7 @@ import {
   supplies,
 } from './schema';
 
-const id = {
+export const seedIds = {
   settings: '11111111-1111-4111-8111-111111111111',
   cakes: '22222222-2222-4222-8222-222222222222',
   desserts: '33333333-3333-4333-8333-333333333333',
@@ -32,15 +34,15 @@ export const seedDatabase = async (
   await databaseClient.transaction(async (transaction) => {
     await transaction
       .insert(settings)
-      .values({ id: id.settings, key: 'business_name', value: 'Valery' })
+      .values({ id: seedIds.settings, key: 'business_name', value: 'Valery' })
       .onConflictDoUpdate({
         target: settings.key,
-        set: { id: id.settings, value: 'Valery' },
+        set: { id: seedIds.settings, value: 'Valery' },
       });
 
     for (const category of [
-      { id: id.cakes, name: 'Tortas' },
-      { id: id.desserts, name: 'Postres' },
+      { id: seedIds.cakes, name: 'Tortas' },
+      { id: seedIds.desserts, name: 'Postres' },
     ]) {
       await transaction
         .insert(categories)
@@ -53,15 +55,15 @@ export const seedDatabase = async (
 
     for (const supply of [
       {
-        id: id.supplies.candle,
-        categoryId: id.desserts,
+        id: seedIds.supplies.candle,
+        categoryId: seedIds.desserts,
         name: 'Vela mediana',
         unit: 'unidad',
         unitCostCop: 1200n,
       },
       {
-        id: id.supplies.bag,
-        categoryId: id.desserts,
+        id: seedIds.supplies.bag,
+        categoryId: seedIds.desserts,
         name: 'Bolsa de regalo',
         unit: 'unidad',
         unitCostCop: 1800n,
@@ -71,7 +73,7 @@ export const seedDatabase = async (
         .insert(supplies)
         .values(supply)
         .onConflictDoUpdate({
-          target: supplies.name,
+          target: [supplies.categoryId, supplies.name],
           set: {
             id: supply.id,
             categoryId: supply.categoryId,
@@ -83,24 +85,24 @@ export const seedDatabase = async (
 
     for (const product of [
       {
-        id: id.products.cake,
-        categoryId: id.cakes,
+        id: seedIds.products.cake,
+        categoryId: seedIds.cakes,
         name: 'Torta',
         description: 'Torta de ejemplo.',
         salePriceCop: 75000n,
         marginBps: 3500,
       },
       {
-        id: id.products.brownie,
-        categoryId: id.desserts,
+        id: seedIds.products.brownie,
+        categoryId: seedIds.desserts,
         name: 'Postre individual',
         description: 'Brownie individual.',
         salePriceCop: 8500n,
         marginBps: 4000,
       },
       {
-        id: id.products.giftBag,
-        categoryId: id.desserts,
+        id: seedIds.products.giftBag,
+        categoryId: seedIds.desserts,
         name: 'Bolsa de regalo',
         description: 'Bolsa con vela y brownie.',
         salePriceCop: 13000n,
@@ -111,7 +113,7 @@ export const seedDatabase = async (
         .insert(products)
         .values(product)
         .onConflictDoUpdate({
-          target: products.name,
+          target: [products.categoryId, products.name],
           set: {
             id: product.id,
             categoryId: product.categoryId,
@@ -124,17 +126,17 @@ export const seedDatabase = async (
 
     for (const component of [
       {
-        id: id.components.giftBagCandle,
-        productId: id.products.giftBag,
-        supplyId: id.supplies.candle,
+        id: seedIds.components.giftBagCandle,
+        productId: seedIds.products.giftBag,
+        supplyId: seedIds.supplies.candle,
         componentProductId: null,
         quantity: '1.000',
       },
       {
-        id: id.components.giftBagBrownie,
-        productId: id.products.giftBag,
+        id: seedIds.components.giftBagBrownie,
+        productId: seedIds.products.giftBag,
         supplyId: null,
-        componentProductId: id.products.brownie,
+        componentProductId: seedIds.products.brownie,
         quantity: '1.000',
       },
     ]) {
@@ -160,4 +162,6 @@ const run = async (): Promise<void> => {
   await closeDatabase();
 };
 
-void run();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  void run();
+}

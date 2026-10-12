@@ -1,3 +1,3 @@
 # Estado
 
-ODD-0.5 adds the PostgreSQL/Drizzle infrastructure adapter: generated F0 migration, migrator, idempotent seed, PostgreSQL URL validation, and conditional integration tests. Native Windows PostgreSQL is the daily runtime. `docker-compose.yml` is versioned as a PostgreSQL-only portability contract for later Linux CI and was not executed locally. Hosting, deployment, Docker runtime validation, and backup policy remain deferred.
+ODD-0.5 PostgreSQL/Drizzle fix is complete: category+name unique constraints and generated migration now match seed upserts; environment reads are centrally guarded in `src/config`; the conditional integration test migrates, seeds twice, and counts only its stable records. `pnpm verify` passed. `DATABASE_URL` was absent, so live DB validation remains pending. Native Windows PostgreSQL is the daily runtime; Compose remains a later Linux CI portability contract.

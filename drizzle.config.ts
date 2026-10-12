@@ -1,10 +1,12 @@
 import { defineConfig } from 'drizzle-kit';
 
-const databaseUrl = process.env.DATABASE_URL;
+import { config, hasDatabaseUrl } from './src/config/env';
 
 export default defineConfig({
   dialect: 'postgresql',
   schema: './src/shared/infrastructure/db/schema.ts',
   out: './drizzle',
-  ...(databaseUrl ? { dbCredentials: { url: databaseUrl } } : {}),
+  ...(hasDatabaseUrl(config)
+    ? { dbCredentials: { url: config.DATABASE_URL } }
+    : {}),
 });
