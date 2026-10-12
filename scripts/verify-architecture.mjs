@@ -16,6 +16,11 @@ const negativeFixtures = [
     'tests/architecture/fixtures/invalid-domain',
   ],
   [
+    'domain database library import',
+    'domain-does-not-import-database-libraries',
+    'tests/architecture/fixtures/invalid-domain-database',
+  ],
+  [
     'presentation shared-domain import',
     'presentation-does-not-bypass-composition',
     'tests/architecture/fixtures/invalid-presentation',

@@ -31,6 +31,24 @@ module.exports = {
       },
     },
     {
+      name: 'domain-does-not-import-database-libraries',
+      severity: 'error',
+      from: { path: '(^|/)src/(modules/[^/]+/|shared/)domain/' },
+      to: {
+        path: 'node_modules/\\.pnpm/(drizzle-orm|pg)@[^/]+/node_modules/',
+        dependencyTypes: ['npm'],
+      },
+    },
+    {
+      name: 'application-does-not-import-database-libraries',
+      severity: 'error',
+      from: { path: '(^|/)src/modules/[^/]+/application/' },
+      to: {
+        path: 'node_modules/\\.pnpm/(drizzle-orm|pg)@[^/]+/node_modules/',
+        dependencyTypes: ['npm'],
+      },
+    },
+    {
       name: 'application-depends-inward',
       severity: 'error',
       from: { path: '(^|/)src/modules/[^/]+/application/' },
