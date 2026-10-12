@@ -18,7 +18,16 @@ module.exports = {
       severity: 'error',
       from: { path: '(^|/)src/(modules/[^/]+/|shared/)domain/' },
       to: {
-        path: '((^|/)src/(app|composition|config|modules/[^/]+/(application|infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
+        path: '(^|/)src/(app|composition|config|modules/[^/]+/(application|infrastructure|presentation)|shared/infrastructure)',
+      },
+    },
+    {
+      name: 'domain-does-not-import-zod',
+      severity: 'error',
+      from: { path: '(^|/)src/(modules/[^/]+/|shared/)domain/' },
+      to: {
+        path: 'node_modules/\\.pnpm/zod@[^/]+/node_modules/zod/',
+        dependencyTypes: ['npm'],
       },
     },
     {
@@ -26,7 +35,7 @@ module.exports = {
       severity: 'error',
       from: { path: '(^|/)src/modules/[^/]+/application/' },
       to: {
-        path: '((^|/)src/(app|composition|config|modules/[^/]+/(infrastructure|presentation)|shared/infrastructure)|(^next|^react|^zod|^drizzle-orm))',
+        path: '(^|/)src/(app|composition|config|modules/[^/]+/(infrastructure|presentation)|shared/infrastructure)',
       },
     },
     {
@@ -40,7 +49,16 @@ module.exports = {
       severity: 'error',
       from: { path: '(^|/)src/(app|modules/[^/]+/presentation)/' },
       to: {
-        path: '(^|/)src/(modules/[^/]+/(application|infrastructure)|shared/(application|domain|infrastructure))/',
+        path: '(^|/)src/(modules/[^/]+/(application|domain|infrastructure)|shared/(application|domain|infrastructure))/',
+      },
+    },
+    {
+      name: 'presentation-imports-only-composition-container',
+      severity: 'error',
+      from: { path: '(^|/)src/(app|modules/[^/]+/presentation)/' },
+      to: {
+        path: '(^|/)src/composition/',
+        pathNot: '(^|/)src/composition/container\\.ts$',
       },
     },
     {
@@ -56,7 +74,7 @@ module.exports = {
   options: {
     tsConfig: { fileName: 'tsconfig.json' },
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(^|/)(node_modules|\.next|coverage)(/|$)' },
+    exclude: { path: '(^|/)(\.next|coverage)(/|$)' },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'node', 'default', 'types'],
