@@ -35,9 +35,22 @@ The project is in its foundation stage. Deployment is intentionally deferred whi
 - Product options and starting prices
 - WhatsApp order handoff
 
+## Local development
+
+Prerequisite: Node.js 24 and Corepack.
+
+```bash
+corepack pnpm install
+corepack pnpm verify
+```
+
+The verification command runs linting, strict type checking, unit tests, architecture rules, and the production build.
+
 ## Documentation
 
 - [Product Requirements Document](./PRD%20-%20Plataforma%20de%20negocio%20de%20Valery%20%28cotizaciones%2C%20cat%C3%A1logo%2C%20pedidos%20e%20inventario%29.md)
+- [Architecture decisions](./docs/adr/)
+- [Implementation progress](./docs/progress.md)
 
 ## License
 
