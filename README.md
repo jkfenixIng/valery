@@ -47,7 +47,15 @@ corepack pnpm db:setup
 corepack pnpm verify
 ```
 
-Set `DATABASE_URL` in `.env.local` to your native PostgreSQL development database. `db:setup` applies pending migrations and runs the idempotent seed; it does not reset or delete data. The verification command runs linting, strict type checking, unit tests, architecture rules, and the production build.
+Set `DATABASE_URL` in `.env.local` to your native PostgreSQL development database. `db:setup` applies pending migrations and runs the idempotent seed; it does not reset or delete data. The verification command runs linting, strict type checking, unit tests, architecture rules, a production HTTP security-header smoke test, and the production build. Run `corepack pnpm audit:dependencies` separately; it fails on high or critical advisories.
+
+## Security baseline
+
+Global response headers include a CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production does not emit it. HSTS is intentionally deferred until an HTTPS deployment is approved.
+
+Report a vulnerability privately as described in [SECURITY.md](./SECURITY.md). The repository is local-first Phase 0 and does not offer a security SLA, bounty, or public production service.
+
+Run an installed Gitleaks binary with `corepack pnpm scan:secrets`. The command is opt-in until a pinned, reproducible Windows and CI provisioning method is approved.
 
 `docker-compose.yml` is versioned only as a portable PostgreSQL contract for future Linux CI validation. Docker Desktop is not required for daily Windows development and is not started by these instructions.
 

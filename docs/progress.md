@@ -1,6 +1,6 @@
 # Progress
 
-## ODD-0.1..0.5
+## ODD-0.1..0.6
 
 Completed local foundation:
 
@@ -9,6 +9,7 @@ Completed local foundation:
 - Drizzle/PostgreSQL infrastructure: F0 schema, generated first migration, migrator, and idempotent example seed.
 - Native Windows PostgreSQL as the daily development runtime.
 - PostgreSQL-only Compose Spec contract for later Linux CI validation; it is not run locally.
+- Static security baseline: global CSP and browser headers, production HTTP smoke coverage, dependency audit, opt-in Gitleaks configuration, and private vulnerability contact files.
 
 ## Deferred
 

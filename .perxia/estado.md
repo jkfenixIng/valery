@@ -1,3 +1,5 @@
 # Estado
 
 ODD UI/design-system Fase 0 is implemented on `devlocal`: `next-themes` supports light/dark/system themes, semantic CSS tokens define both modes, shared primitives live in `src/shared/ui`, and `/design` demonstrates required component states with accessible, mobile-first controls. ADR-008 documents the local-only boundary. `pnpm verify` remains the delivery gate; no PWA, hosting, business flow, auth, DB, security header, CI, or README change is part of this cut.
+
+ODD security baseline: global headers and a testable CSP protect every Next route; production excludes `unsafe-eval`, development permits it only for tooling, and HSTS remains deferred until HTTPS hosting. `SECURITY.md` and `/.well-known/security.txt` expose the approved private contact without SLA or production claims. `verify` includes a production HTTP header smoke test; dependency audit is explicit because the current graph has an unresolved high advisory. Gitleaks remains opt-in until its Windows/CI provisioning is reproducible. No hosting, PWA, auth, DB/schema/migration, or product UI change belongs to this cut.

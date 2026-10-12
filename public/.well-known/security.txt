@@ -1,0 +1,3 @@
+Contact: mailto:jkfenix95@hotmail.com
+
+# Local-first Phase 0 repository. No public production deployment or response-time commitment.

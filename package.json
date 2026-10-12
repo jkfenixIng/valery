@@ -17,11 +17,14 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:architecture": "depcruise --validate .dependency-cruiser.cjs src && node scripts/verify-architecture.mjs && node scripts/verify-environment-access.mjs",
+    "test:security-headers": "node scripts/smoke-security-headers.mjs",
+    "audit:dependencies": "corepack pnpm audit --audit-level=high",
+    "scan:secrets": "node scripts/verify-secrets.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/shared/infrastructure/db/migrate.ts",
     "db:seed": "tsx src/shared/infrastructure/db/seed.ts",
     "db:setup": "tsx src/shared/infrastructure/db/setup.ts",
-    "verify": "corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm test:architecture && corepack pnpm build"
+    "verify": "corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm test:architecture && corepack pnpm build && corepack pnpm test:security-headers"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.3.3",
