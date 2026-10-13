@@ -86,6 +86,16 @@ export const requireAdminSeedConfig = (
   return { email: appConfig.ADMIN_EMAIL, password: appConfig.ADMIN_PASSWORD };
 };
 
+export type EndToEndConfig = AdminSeedConfig & Readonly<{ baseUrl: string }>;
+
+export const requireEndToEndConfig = (appConfig: AppConfig): EndToEndConfig => {
+  requireDatabaseUrl(appConfig);
+  return {
+    ...requireAdminSeedConfig(appConfig),
+    baseUrl: requireAuthConfig(appConfig).baseUrl,
+  };
+};
+
 export const config = createConfig(process.env);
 
 export const getSecurityEnvironment = (): AppConfig['NODE_ENV'] =>

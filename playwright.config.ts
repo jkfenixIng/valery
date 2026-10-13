@@ -1,23 +1,15 @@
 import { defineConfig } from '@playwright/test';
 
-const requiredEnvironment = [
-  'DATABASE_URL',
-  'BETTER_AUTH_SECRET',
-  'BETTER_AUTH_URL',
-  'ADMIN_EMAIL',
-  'ADMIN_PASSWORD',
-];
+import { config, requireEndToEndConfig } from './src/config/env';
 
-if (requiredEnvironment.some((name) => !process.env[name])) {
-  throw new Error(`test:e2e requires ${requiredEnvironment.join(', ')}.`);
-}
+const { baseUrl } = requireEndToEndConfig(config);
 
 export default defineConfig({
   testDir: './tests/e2e',
-  use: { baseURL: process.env.BETTER_AUTH_URL },
+  use: { baseURL: baseUrl },
   webServer: {
     command: 'corepack pnpm dev',
     reuseExistingServer: false,
-    url: process.env.BETTER_AUTH_URL,
+    url: baseUrl,
   },
 });

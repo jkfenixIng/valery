@@ -1,8 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 
-const adminEmail = process.env.ADMIN_EMAIL ?? '';
-const adminPassword = process.env.ADMIN_PASSWORD ?? '';
+import { config, requireEndToEndConfig } from '../../src/config/env';
+
+const {
+  baseUrl,
+  email: adminEmail,
+  password: adminPassword,
+} = requireEndToEndConfig(config);
 const genericError = 'Correo o contraseña inválidos.';
 
 test.describe.configure({ mode: 'serial' });
@@ -51,7 +56,7 @@ test('locks an account after five failed passwords without revealing the lock', 
     request.post('/api/auth/sign-in/email', {
       data: { email, password: 'definitely-the-wrong-password' },
       headers: {
-        origin: process.env.BETTER_AUTH_URL ?? '',
+        origin: baseUrl,
         'x-forwarded-for': `10.0.0.${Date.now() % 250}`,
       },
     });

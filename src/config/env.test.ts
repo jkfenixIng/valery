@@ -8,6 +8,7 @@ import {
   requireAdminSeedConfig,
   requireAuthConfig,
   requireDatabaseUrl,
+  requireEndToEndConfig,
 } from './env';
 
 describe('environment configuration', () => {
@@ -59,6 +60,12 @@ describe('environment configuration', () => {
       secret: 'x'.repeat(32),
     });
     expect(hasAdminSeedConfig(config)).toBe(true);
+  });
+
+  it('requires database and auth settings for end-to-end tests', () => {
+    expect(() =>
+      requireEndToEndConfig(createConfig({ NODE_ENV: 'test' })),
+    ).toThrow(ConfigurationError);
   });
 
   it.each([
