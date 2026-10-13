@@ -1,6 +1,6 @@
 # ADR-003: Reserve Better Auth for a later authentication slice
 
-- **Status**: Accepted
+- **Status**: Superseded by [ADR-010](./010-better-auth-admin-totp.md)
 - **Date**: 2026-10-12
 - **Deciders**: Valery project
 - **Tags**: security, authentication

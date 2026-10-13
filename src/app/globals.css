@@ -234,6 +234,26 @@ input {
   color: var(--primary-foreground);
 }
 
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  padding: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

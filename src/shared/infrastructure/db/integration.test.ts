@@ -12,8 +12,14 @@ describeDatabase(
       const { migrate } = await import('drizzle-orm/node-postgres/migrator');
       const { closeDatabase, database } = await import('./client');
       const { seedDatabase, seedIds } = await import('./seed');
-      const { categories, productComponents, products, settings, supplies } =
-        await import('./schema');
+      const {
+        categories,
+        productComponents,
+        products,
+        settings,
+        supplies,
+        users,
+      } = await import('./schema');
 
       try {
         await migrate(database, { migrationsFolder: 'drizzle' });
@@ -56,6 +62,22 @@ describeDatabase(
         expect(seededSupplies).toHaveLength(2);
         expect(seededProducts).toHaveLength(3);
         expect(seededComponents).toHaveLength(2);
+
+        if (
+          config.ADMIN_EMAIL &&
+          config.BETTER_AUTH_SECRET &&
+          config.BETTER_AUTH_URL
+        ) {
+          const { seedAdmin } =
+            await import('../../../modules/auth/infrastructure/seed-admin');
+          await seedAdmin();
+          await seedAdmin();
+          const admins = await database
+            .select()
+            .from(users)
+            .where(inArray(users.email, [config.ADMIN_EMAIL.toLowerCase()]));
+          expect(admins).toHaveLength(1);
+        }
       } finally {
         await closeDatabase();
       }

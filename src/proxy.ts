@@ -6,7 +6,21 @@ import { createContentSecurityPolicy } from '@/config/security';
 const createNonce = (): string =>
   Buffer.from(crypto.randomUUID()).toString('base64');
 
+const sessionCookieNames = [
+  'better-auth.session_token',
+  '__Secure-better-auth.session_token',
+];
+
+// Optimistic only: the admin layout and route handlers perform the real check.
+const isAnonymousAdminRequest = (request: NextRequest): boolean =>
+  request.nextUrl.pathname.startsWith('/admin') &&
+  !sessionCookieNames.some((name) => request.cookies.has(name));
+
 export function proxy(request: NextRequest) {
+  if (isAnonymousAdminRequest(request)) {
+    return NextResponse.redirect(new URL('/auth/sign-in', request.url));
+  }
+
   const nonce = createNonce();
   const contentSecurityPolicy = createContentSecurityPolicy(
     getSecurityEnvironment(),
