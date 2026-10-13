@@ -49,6 +49,14 @@ corepack pnpm verify
 
 Set `DATABASE_URL` in `.env.local` to your native PostgreSQL development database. `db:setup` applies pending migrations and runs the idempotent seed; it does not reset or delete data. The verification command runs linting, strict type checking, unit tests, architecture rules, a production HTTP security-header smoke test, and the production build. Run `corepack pnpm audit:dependencies` separately; it fails on high or critical advisories. CI runs that audit and secret scanning only for `develop` pushes and pull requests.
 
+## Administrator authentication
+
+Set `BETTER_AUTH_SECRET` (at least 32 random characters), `BETTER_AUTH_URL`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` (at least 12 characters) in untracked `.env.local`. Then run `corepack pnpm db:setup`, or create only the idempotent administrator with `corepack pnpm db:seed:admin`. Public sign-up is disabled.
+
+The administrator must enroll an authenticator app at `/auth/two-factor/setup` before entering `/admin`. The setup page shows a one-time manual secret/otpauth URI and ten recovery codes; store those codes offline because each works only once. To recover a lost authenticator, the responsible adult signs in with a recovery code. If every recovery code is lost, reset TOTP by deleting that administrator's `two_factor` row and setting `user.two_factor_enabled` to `false` in a controlled PostgreSQL maintenance session, then sign in and enroll again. Record the intervention outside the application and rotate the administrator password afterward.
+
+`corepack pnpm test:e2e` requires PostgreSQL plus all five authentication variables and is deliberately excluded from `verify`, which remains database-free.
+
 ## Security baseline
 
 Global response headers include a per-request nonce CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production emits neither `unsafe-eval` nor `unsafe-inline`. Nonces require dynamic rendering so Next can inject them during SSR. HSTS is intentionally deferred until an HTTPS deployment is approved.
