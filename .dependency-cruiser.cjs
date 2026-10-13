@@ -40,6 +40,18 @@ module.exports = {
       },
     },
     {
+      name: 'better-auth-is-infrastructure-only',
+      severity: 'error',
+      from: {
+        path: '(^|/)src/',
+        pathNot: '(^|/)src/(modules/auth/infrastructure|composition)/',
+      },
+      to: {
+        path: 'node_modules/\\.pnpm/(better-auth@|@better-auth\\+)[^/]+/node_modules/',
+        dependencyTypes: ['npm'],
+      },
+    },
+    {
       name: 'application-does-not-import-database-libraries',
       severity: 'error',
       from: { path: '(^|/)src/modules/[^/]+/application/' },

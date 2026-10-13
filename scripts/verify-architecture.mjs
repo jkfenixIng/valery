@@ -21,6 +21,11 @@ const negativeFixtures = [
     'tests/architecture/fixtures/invalid-domain-database',
   ],
   [
+    'presentation Better Auth import',
+    'better-auth-is-infrastructure-only',
+    'tests/architecture/fixtures/invalid-better-auth-import',
+  ],
+  [
     'presentation shared-domain import',
     'presentation-does-not-bypass-composition',
     'tests/architecture/fixtures/invalid-presentation',
