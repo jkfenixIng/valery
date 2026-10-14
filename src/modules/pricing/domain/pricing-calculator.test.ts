@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Money } from '../../../shared/domain/Money';
+import { Quantity } from './quantity';
 import {
   calculateCost,
   calculateLine,
@@ -39,6 +40,9 @@ const settings: PricingSettings = {
 };
 const minimumProfitBps = 1_500;
 
+const quantity = (value: number) => unwrap(Quantity.fromInteger(value));
+const parsedQuantity = (value: string) => unwrap(Quantity.parse(value));
+
 const price = (input: CostInput) => {
   const cost = unwrap(calculateCost(input, settings));
   const suggestedPrice = unwrap(calculateSuggestedPrice(cost.total, settings));
@@ -50,7 +54,7 @@ const price = (input: CostInput) => {
 };
 
 const caseA: CostInput = {
-  materials: [{ quantity: 1, unitCost: pesos(20_000) }],
+  materials: [{ quantity: quantity(1), unitCost: pesos(20_000) }],
   components: [],
   laborMinutes: 90,
 };
@@ -73,9 +77,9 @@ describe('pricing golden cases (PRD section 17)', () => {
   it('B. Vela personalizada', () => {
     const result = price({
       materials: [
-        { quantity: 1, unitCost: pesos(9_000) },
-        { quantity: 1, unitCost: pesos(1_500) },
-        { quantity: 1, unitCost: pesos(2_500) },
+        { quantity: quantity(1), unitCost: pesos(9_000) },
+        { quantity: quantity(1), unitCost: pesos(1_500) },
+        { quantity: quantity(1), unitCost: pesos(2_500) },
       ],
       components: [],
       laborMinutes: 30 + 40,
@@ -95,8 +99,8 @@ describe('pricing golden cases (PRD section 17)', () => {
 
   it('C. Bolsa de regalo con vela', () => {
     const result = price({
-      materials: [{ quantity: 1, unitCost: pesos(4_000) }],
-      components: [{ quantity: 1, unitCost: pesos(15_000) }],
+      materials: [{ quantity: quantity(1), unitCost: pesos(4_000) }],
+      components: [{ quantity: quantity(1), unitCost: pesos(15_000) }],
       laborMinutes: 20,
     });
 
@@ -119,7 +123,7 @@ describe('pricing golden cases (PRD section 17)', () => {
         calculateLine({
           unitPrice: unit.suggestedPrice,
           unitCost: unit.cost.total,
-          quantity: 3,
+          quantity: quantity(3),
         }),
       ),
     ).toEqual({ total: pesos(171_000), cost: pesos(102_000), profit: 69_000 });
@@ -131,7 +135,7 @@ describe('calculateCost', () => {
     const cost = unwrap(
       calculateCost(
         {
-          materials: [{ quantity: 3, unitCost: pesos(700) }],
+          materials: [{ quantity: quantity(3), unitCost: pesos(700) }],
           components: [],
           laborMinutes: 0,
         },
@@ -146,7 +150,7 @@ describe('calculateCost', () => {
     const cost = unwrap(
       calculateCost(
         {
-          materials: [{ quantity: 1, unitCost: pesos(5) }],
+          materials: [{ quantity: quantity(1), unitCost: pesos(5) }],
           components: [],
           laborMinutes: 30,
         },
@@ -167,7 +171,7 @@ describe('calculateCost', () => {
       calculateCost(
         {
           materials: [],
-          components: [{ quantity: 2, unitCost: pesos(15_000) }],
+          components: [{ quantity: quantity(2), unitCost: pesos(15_000) }],
           laborMinutes: 0,
         },
         settings,
@@ -179,20 +183,52 @@ describe('calculateCost', () => {
     expect(cost.total).toEqual(pesos(30_000));
   });
 
-  it.each([
-    ['zero quantity', { quantity: 0 }],
-    ['fractional quantity', { quantity: 1.5 }],
-  ])('rejects a material line with %s', (_scenario, line) => {
-    expect(
+  const materialsCost = (...lines: [string, number][]) =>
+    unwrap(
       calculateCost(
         {
-          materials: [{ unitCost: pesos(1), ...line }],
+          materials: lines.map(([amount, unitCost]) => ({
+            quantity: parsedQuantity(amount),
+            unitCost: pesos(unitCost),
+          })),
           components: [],
           laborMinutes: 0,
         },
         settings,
       ),
-    ).toEqual({ ok: false, error: 'INVALID_QUANTITY' });
+    ).materials;
+
+  it('costs a decimal quantity exactly: 0.250 x 8000 = 2000', () => {
+    expect(materialsCost(['0.250', 8_000])).toEqual(pesos(2_000));
+  });
+
+  it('rounds a fractional material cost half up: 1/2 x 5 = 3', () => {
+    expect(materialsCost(['1/2', 5])).toEqual(pesos(3));
+  });
+
+  it('rounds the material sum once, not per line: 3 x (1/3 x 10) = 10', () => {
+    expect(
+      materialsCost(['1/3', 10], ['1/3', 10], ['1/3', 10]),
+    ).toEqual(pesos(10));
+  });
+
+  it('costs a fractional component without adding overhead to it', () => {
+    const cost = unwrap(
+      calculateCost(
+        {
+          materials: [{ quantity: quantity(1), unitCost: pesos(4_000) }],
+          components: [
+            { quantity: parsedQuantity('1/2'), unitCost: pesos(15_000) },
+          ],
+          laborMinutes: 0,
+        },
+        settings,
+      ),
+    );
+
+    expect(cost.components).toEqual(pesos(7_500));
+    expect(cost.overhead).toEqual(pesos(400));
+    expect(cost.total).toEqual(pesos(11_900));
   });
 
   it.each([-1, 1.5])('rejects %p labor minutes', (laborMinutes) => {
@@ -274,10 +310,20 @@ describe('evaluateProfit', () => {
 });
 
 describe('calculateLine', () => {
-  it.each([0, -1, 1.5])('rejects %p as a line quantity', (quantity) => {
+  it.each([
+    [500, 250],
+    [501, 251],
+  ])('rounds %p x 1/2 half up to %p', (unitPrice, expected) => {
     expect(
-      calculateLine({ unitPrice: pesos(500), unitCost: pesos(100), quantity }),
-    ).toEqual({ ok: false, error: 'INVALID_QUANTITY' });
+      calculateLine({
+        unitPrice: pesos(unitPrice),
+        unitCost: pesos(unitPrice),
+        quantity: parsedQuantity('1/2'),
+      }),
+    ).toEqual({
+      ok: true,
+      value: { total: pesos(expected), cost: pesos(expected), profit: 0 },
+    });
   });
 
   it('rejects a total beyond the safe COP integer range', () => {
@@ -285,7 +331,7 @@ describe('calculateLine', () => {
       calculateLine({
         unitPrice: pesos(Number.MAX_SAFE_INTEGER),
         unitCost: pesos(0),
-        quantity: 2,
+        quantity: quantity(2),
       }),
     ).toEqual({ ok: false, error: 'AMOUNT_OUT_OF_RANGE' });
   });

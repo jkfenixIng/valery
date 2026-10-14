@@ -1,5 +1,6 @@
 import { Money } from '../../../shared/domain/Money';
 import { err, ok, type Result } from '../../../shared/domain/Result';
+import type { Fraction, Quantity } from './quantity';
 
 /** Percentages are integer basis points: 40% = 4000. */
 export type PricingSettings = Readonly<{
@@ -10,7 +11,7 @@ export type PricingSettings = Readonly<{
 }>;
 
 export type CostLine = Readonly<{
-  quantity: number;
+  quantity: Quantity;
   unitCost: Money;
 }>;
 
@@ -42,7 +43,7 @@ export type ProfitEvaluation = Readonly<{
 export type LineInput = Readonly<{
   unitPrice: Money;
   unitCost: Money;
-  quantity: number;
+  quantity: Quantity;
 }>;
 
 export type LineTotal = Readonly<{
@@ -52,7 +53,6 @@ export type LineTotal = Readonly<{
 }>;
 
 export type PricingError =
-  | 'INVALID_QUANTITY'
   | 'INVALID_LABOR_MINUTES'
   | 'INVALID_OVERHEAD'
   | 'INVALID_MARGIN'
@@ -91,18 +91,20 @@ const toSafeNumber = (amount: bigint): Result<number, PricingError> =>
     ? ok(Number(amount))
     : err('AMOUNT_OUT_OF_RANGE');
 
-const sumLines = (lines: readonly CostLine[]): Result<bigint, PricingError> => {
-  let total = 0n;
+const addFractions = (left: Fraction, right: Fraction): Fraction => ({
+  numerator:
+    left.numerator * right.denominator + right.numerator * left.denominator,
+  denominator: left.denominator * right.denominator,
+});
+
+const sumLines = (lines: readonly CostLine[]): Fraction => {
+  let total: Fraction = { numerator: 0n, denominator: 1n };
 
   for (const line of lines) {
-    if (!isPositiveInteger(line.quantity)) {
-      return err('INVALID_QUANTITY');
-    }
-
-    total += BigInt(line.quantity) * BigInt(line.unitCost.amount);
+    total = addFractions(total, line.quantity.times(BigInt(line.unitCost.amount)));
   }
 
-  return ok(total);
+  return total;
 };
 
 const collectMoney = <Key extends string>(
@@ -121,6 +123,12 @@ const collectMoney = <Key extends string>(
   return ok(result);
 };
 
+/**
+ * Rounding policy (the PRD is silent on fractional quantities): material and
+ * component lines are summed as exact rationals, and each category total is
+ * rounded half up to COP once. Rounding per line would bias sums such as
+ * three lines of 1/3 x 10 (10, not 9). Overhead uses the rounded materials.
+ */
 export const calculateCost = (
   input: CostInput,
   settings: PricingSettings,
@@ -133,29 +141,25 @@ export const calculateCost = (
   }
 
   const materials = sumLines(input.materials);
-  if (!materials.ok) {
-    return materials;
-  }
   const components = sumLines(input.components);
-  if (!components.ok) {
-    return components;
-  }
+  const roundedMaterials = roundHalfUp(materials.numerator, materials.denominator);
+  const roundedComponents = roundHalfUp(components.numerator, components.denominator);
 
   const labor = roundHalfUp(
     BigInt(input.laborMinutes) * BigInt(settings.hourlyRate.amount),
     minutesPerHour,
   );
   const overhead = roundHalfUp(
-    materials.value * BigInt(settings.overheadBps),
+    roundedMaterials * BigInt(settings.overheadBps),
     bpsBase,
   );
 
   return collectMoney({
-    materials: materials.value,
-    components: components.value,
+    materials: roundedMaterials,
+    components: roundedComponents,
     labor,
     overhead,
-    total: materials.value + components.value + labor + overhead,
+    total: roundedMaterials + roundedComponents + labor + overhead,
   });
 };
 
@@ -220,17 +224,17 @@ export const evaluateProfit = (
   });
 };
 
-/** A line total is the already rounded unit price times the quantity. */
+/**
+ * A line total is the already rounded unit price times the exact quantity,
+ * rounded half up to COP; the line cost is computed the same way.
+ */
 export const calculateLine = (
   input: LineInput,
 ): Result<LineTotal, PricingError> => {
-  if (!isPositiveInteger(input.quantity)) {
-    return err('INVALID_QUANTITY');
-  }
-
-  const quantity = BigInt(input.quantity);
-  const total = BigInt(input.unitPrice.amount) * quantity;
-  const cost = BigInt(input.unitCost.amount) * quantity;
+  const price = input.quantity.times(BigInt(input.unitPrice.amount));
+  const unitCost = input.quantity.times(BigInt(input.unitCost.amount));
+  const total = roundHalfUp(price.numerator, price.denominator);
+  const cost = roundHalfUp(unitCost.numerator, unitCost.denominator);
   const amounts = collectMoney({ total, cost });
   if (!amounts.ok) {
     return amounts;
