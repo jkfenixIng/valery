@@ -6,6 +6,8 @@ node_modules/
 out/
 dist/
 coverage/
+public/sw.js
+public/sw.js.map
 *.tsbuildinfo
 
 # Logs

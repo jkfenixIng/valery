@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { ThemeProvider } from '@/shared/ui';
 
+import { RegisterServiceWorker } from './register-service-worker';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default async function RootLayout({
   return (
     <html lang="es-CO" suppressHydrationWarning>
       <body>
+        <RegisterServiceWorker />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

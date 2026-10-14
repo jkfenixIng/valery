@@ -5,7 +5,14 @@ import tseslint from 'typescript-eslint';
 
 const config = [
   {
-    ignores: ['.next/**', 'coverage/**', 'node_modules/**', '.dependency-cruiser.cjs'],
+    ignores: [
+      '.next/**',
+      'coverage/**',
+      'node_modules/**',
+      'public/sw.js',
+      'public/sw.js.map',
+      '.dependency-cruiser.cjs',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

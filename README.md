@@ -61,6 +61,12 @@ The administrator must enroll an authenticator app at `/auth/two-factor/setup` b
 
 Global response headers include a per-request nonce CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production emits neither `unsafe-eval` nor `unsafe-inline`. Nonces require dynamic rendering so Next can inject them during SSR. HSTS is intentionally deferred until an HTTPS deployment is approved.
 
+## Local PWA
+
+`corepack pnpm build` builds the Serwist service worker after Next prerendering and copies generated public assets into the standalone output. `corepack pnpm test:pwa` verifies that the production server serves the manifest, `/sw.js`, and `/~offline`.
+
+The service worker precaches only the public shell build assets, the three local icons, the manifest, and the `/~offline` fallback. It has no runtime caching: it never caches `/admin`, `/auth`, `/api`, custom `GET` responses, requests with cookies or `Authorization`, non-`GET` requests, or runtime documents. Service-worker registration is performed by a client component, not an inline script, so it remains compatible with the nonce CSP. The PWA is local-only; installation and offline behavior still require a browser with service-worker support and an HTTPS origin outside localhost.
+
 Report a vulnerability privately as described in [SECURITY.md](./SECURITY.md). The repository is local-first Phase 0 and does not offer a security SLA, bounty, or public production service.
 
 Run an installed Gitleaks binary with `corepack pnpm scan:secrets`; the command is opt-in and clearly fails when the binary is unavailable. CI uses the SHA-pinned official Gitleaks action, without adding an npm wrapper.
