@@ -83,7 +83,7 @@ Public sign-up is disabled. After the initial sign-in, enroll an authenticator a
 
 Run `corepack pnpm verify` before delivery. It runs lint, typecheck, unit tests, architecture checks, production build, security-header smoke tests, and PWA smoke tests. Run `corepack pnpm format` separately for formatting.
 
-`test:e2e` is written but deferred to the final testing phase and intentionally excluded from `verify`.
+`test:e2e` is written but deferred to the final testing phase and intentionally excluded from `verify`. Unit tests never open a database connection: persistence adapters are tested with mocked Drizzle clients, and real PostgreSQL validation is deferred to the same final phase.
 
 ## Security and PWA
 

@@ -23,8 +23,10 @@ Use Drizzle ORM, drizzle-kit, and `pg` in `src/shared/infrastructure/db`. `DATAB
 
 ## Consequences
 
-The F0 schema, migrator, and idempotent seed are infrastructure-only. Dependency-cruiser prohibits `drizzle-orm` and `pg` imports from domain and application. PostgreSQL integration tests run only when `DATABASE_URL` is available.
+The F0 schema, migrator, and idempotent seed are infrastructure-only. Dependency-cruiser prohibits `drizzle-orm` and `pg` imports from domain and application.
 
 ## Verification
 
-`pnpm verify` checks unit, configuration, architecture, and build gates. A local database enables `db:migrate`, `db:seed`, and PostgreSQL integration tests; Compose syntax can be checked without starting containers when the Docker CLI supports it.
+`pnpm verify` checks unit, configuration, architecture, and build gates. A local database enables `db:migrate` and `db:seed`; Compose syntax can be checked without starting containers when the Docker CLI supports it.
+
+**Development testing note (2026-10-13):** during development, DB-backed tests are not executed. Persistence adapters are verified with mocked Drizzle clients that never open a connection (transaction scope, audit ordering, canonical values, active-row filters, constraint mapping, and row mapping). Real PostgreSQL validation of migrations, seeds, and repositories is deferred to the final testing phase together with E2E.

@@ -24,8 +24,11 @@ The public DTO guard `assertPublicDto` is available but not yet applied, because
 - **F1-03:** supplies can be created, edited, listed while active, and archived at `/admin/insumos`; mutations require a rechecked TOTP-enabled admin and are audited without supply details. Supply name/unit limits (120/32 trimmed characters) are technical safeguards enforced by the domain and form boundary, not business rules. The unchanged unique `(category_id, name)` constraint means an archived same-name supply cannot be recreated.
 - **F1-04:** product components are deliberately untouched. Their exact fractional recipe quantity will use a separate canonical string field and parse to `Quantity` at the API/application boundary; no component fraction field is in F1-03.
 
+Persistence adapters are verified with mocked Drizzle clients; no test opens a database connection during development (see ADR-002).
+
 ## Explicitly deferred
 
+- Real PostgreSQL validation of migrations, seeds, and repositories, together with E2E in the final testing phase.
 - Application Dockerfile and app Compose runtime.
 - Linux CI portability and runtime Docker validation.
 - Vercel and Neon preview environments.
