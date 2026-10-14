@@ -40,6 +40,7 @@ export default async function ProductsPage() {
                 </Link>{' '}
                 — {typeNames[product.calculationType]}
                 {product.isPublished ? ' · publicado' : ''}
+                {product.needsReview ? ' · Requiere revisión' : ''}
               </li>
             ))}
           </ul>

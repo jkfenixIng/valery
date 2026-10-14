@@ -11,6 +11,7 @@ import type {
   ProductRecord,
   ProductRepository,
   ProductWriteResult,
+  StoredProduct,
 } from './product-repository';
 
 export type ProductMutationError =
@@ -20,7 +21,9 @@ export type ProductMutationError =
         | 'UNAUTHORIZED'
         | 'PRODUCT_NOT_FOUND'
         | 'PRODUCT_CATEGORY_NOT_FOUND'
-        | 'PRODUCT_NAME_TAKEN';
+        | 'PRODUCT_NAME_TAKEN'
+        | 'PRODUCT_IN_USE_BY_BUNDLE'
+        | 'PRODUCT_USED_AS_BUNDLE_COMPONENT';
     }>;
 
 export type SaveProductCommand = Readonly<{
@@ -66,6 +69,12 @@ const toResult = (
   if (written.reason === 'reference_not_found') {
     // A referenced supply or product was archived or removed concurrently.
     return err({ code: 'PRODUCT_INVALID', fields: ['components'] });
+  }
+  if (written.reason === 'component_ineligible') {
+    return err({ code: 'PRODUCT_INVALID', fields: written.fields });
+  }
+  if (written.reason === 'used_as_bundle_component') {
+    return err({ code: 'PRODUCT_USED_AS_BUNDLE_COMPONENT' });
   }
   return notFound;
 };
@@ -135,10 +144,11 @@ export const listProductSupplies = (repository: ProductRepository) =>
 export const listBundleProducts = (repository: ProductRepository) =>
   repository.listBundleProducts();
 
+/** Includes rows that need review; they are returned, never altered. */
 export const getActiveProduct = async (
   repository: ProductRepository,
   productId: string,
-): Promise<ProductRecord | null> =>
+): Promise<StoredProduct | null> =>
   isProductReference(productId) ? repository.findActive(productId) : null;
 
 export const createProduct = async (
@@ -191,5 +201,9 @@ export const archiveProduct = async (
     command.productId,
     auditEvent('product.archived', command.actorUserId),
   );
-  return archived ? ok(undefined) : notFound;
+  if (archived === 'archived') return ok(undefined);
+  if (archived === 'in_use_by_bundle') {
+    return err({ code: 'PRODUCT_IN_USE_BY_BUNDLE' });
+  }
+  return notFound;
 };

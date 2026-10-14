@@ -38,7 +38,6 @@ import {
   updateProduct,
 } from '@/modules/products/application/products';
 import {
-  Product,
   productLimits,
   type ProductInput,
 } from '@/modules/products/domain/product';
@@ -73,6 +72,7 @@ export type EditableProduct = Readonly<{
   id: string;
   categoryId: string;
   input: ProductInput;
+  validationIssues: readonly string[];
 }>;
 
 export type PricingSettingsForm =
@@ -140,8 +140,8 @@ export const container = {
     getEditable: async (productId: string): Promise<EditableProduct | null> => {
       const product = await getActiveProduct(productRepository, productId);
       if (!product) return null;
-      const { id, categoryId } = product;
-      return { id, categoryId, input: Product.toInput(product) };
+      const { id, categoryId, input, validationIssues } = product;
+      return { id, categoryId, input, validationIssues };
     },
     create: (
       actorUserId: string | null,

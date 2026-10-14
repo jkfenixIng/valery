@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import type { AuditEvent } from '../../auth/domain/audit-event';
-import type { ProductDetails, ProductInput } from '../domain/product';
+import {
+  Product,
+  type ProductDetails,
+  type ProductInput,
+} from '../domain/product';
 import type {
   ProductRecord,
   ProductRepository,
@@ -37,11 +41,20 @@ class InMemoryProductRepository implements ProductRepository {
         name,
         calculationType,
         isPublished,
+        needsReview: false,
       }));
   }
 
   async findActive(id: string) {
-    return this.active(id) ?? null;
+    const row = this.active(id);
+    return row
+      ? {
+          id: row.id,
+          categoryId: row.categoryId,
+          input: Product.toInput(row),
+          validationIssues: [],
+        }
+      : null;
   }
 
   async listCategories() {
@@ -83,6 +96,9 @@ class InMemoryProductRepository implements ProductRepository {
   ): Promise<ProductWriteResult> {
     const row = this.active(id);
     if (!row) return { ok: false, reason: 'not_found' };
+    if (product.calculationType === 'bundle' && this.isComponent(id)) {
+      return { ok: false, reason: 'used_as_bundle_component' };
+    }
     Object.assign(row, product, { categoryId });
     this.audits.push(audit);
     return { ok: true, product: row };
@@ -90,14 +106,26 @@ class InMemoryProductRepository implements ProductRepository {
 
   async archive(id: string, audit: AuditEvent) {
     const row = this.active(id);
-    if (!row) return false;
+    if (!row) return 'not_found' as const;
+    if (this.isComponent(id)) return 'in_use_by_bundle' as const;
     row.archived = true;
     this.audits.push(audit);
-    return true;
+    return 'archived' as const;
   }
 
   private active(id: string) {
     return this.rows.find((row) => row.id === id && !row.archived);
+  }
+
+  private isComponent(id: string) {
+    return this.rows.some(
+      (row) =>
+        !row.archived &&
+        row.components.some(
+          (component) =>
+            component.kind === 'product' && component.referenceId === id,
+        ),
+    );
   }
 }
 
@@ -251,6 +279,71 @@ describe('product use cases', () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+
+  it('protects bundle components from archiving and from becoming bundles', async () => {
+    const repository = setup();
+    const cake = await created(repository);
+    await created(repository, {
+      ...recipe,
+      name: 'Combo',
+      calculationType: 'bundle',
+      recipeYieldPortions: null,
+      components: [{ kind: 'product', referenceId: cake.id, quantity: '1' }],
+    });
+
+    await expect(
+      archiveProduct(repository, { actorUserId, productId: cake.id }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: 'PRODUCT_IN_USE_BY_BUNDLE' },
+    });
+    await expect(
+      updateProduct(repository, {
+        actorUserId,
+        productId: cake.id,
+        categoryId,
+        input: {
+          ...recipe,
+          calculationType: 'bundle',
+          recipeYieldPortions: null,
+          components: [{ kind: 'supply', referenceId: bag, quantity: '1' }],
+        },
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: 'PRODUCT_USED_AS_BUNDLE_COMPONENT' },
+    });
+    expect(repository.audits).toHaveLength(2);
+  });
+
+  it('maps ineligible components found by the store to field errors', async () => {
+    const repository = setup();
+    const cake = await created(repository);
+    repository.create = async () => ({
+      ok: false,
+      reason: 'component_ineligible',
+      fields: ['components.0.referenceId'],
+    });
+
+    await expect(
+      createProduct(repository, {
+        actorUserId,
+        categoryId,
+        input: {
+          ...recipe,
+          name: 'Combo',
+          calculationType: 'bundle',
+          recipeYieldPortions: null,
+          components: [
+            { kind: 'product', referenceId: cake.id, quantity: '1' },
+          ],
+        },
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: 'PRODUCT_INVALID', fields: ['components.0.referenceId'] },
+    });
   });
 
   it('maps store failures and unknown ids without auditing', async () => {

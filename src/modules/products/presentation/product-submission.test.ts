@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  reviewFormState,
   submitNewProduct,
   submitProductArchive,
   submitProductChanges,
@@ -168,6 +169,57 @@ describe('product submissions', () => {
     ).resolves.toMatchObject({
       status: 'error',
       message: 'El producto no existe o ya fue archivado.',
+    });
+  });
+
+  it('explains bundle integrity and missing category errors in Spanish', async () => {
+    const inUse = fake('admin-1', {
+      ok: false,
+      error: { code: 'PRODUCT_IN_USE_BY_BUNDLE' },
+    });
+    await expect(
+      submitProductArchive(inUse.dependencies, productId),
+    ).resolves.toMatchObject({
+      status: 'error',
+      message:
+        'No se puede archivar: este producto está siendo usado por uno o más combos.',
+    });
+
+    const nested = fake('admin-1', {
+      ok: false,
+      error: { code: 'PRODUCT_USED_AS_BUNDLE_COMPONENT' },
+    });
+    await expect(
+      submitProductChanges(nested.dependencies, productId, formData(candle)),
+    ).resolves.toMatchObject({
+      status: 'error',
+      message:
+        'No se puede convertir en combo: este producto está siendo usado como componente de otro combo.',
+    });
+
+    const category = fake('admin-1', {
+      ok: false,
+      error: { code: 'PRODUCT_CATEGORY_NOT_FOUND' },
+    });
+    await expect(
+      submitNewProduct(category.dependencies, formData(candle)),
+    ).resolves.toMatchObject({
+      status: 'error',
+      message: 'La categoría elegida ya no existe.',
+    });
+  });
+
+  it('flags the fields of a stored product that needs review', () => {
+    expect(reviewFormState([])).toEqual({ status: 'idle' });
+    expect(
+      reviewFormState(['ownMarginBps', 'fixedPriceCop', 'components']),
+    ).toEqual({
+      status: 'idle',
+      fieldErrors: {
+        ownMarginPercent: expect.any(String),
+        fixedPriceCop: expect.any(String),
+        componentsJson: expect.any(String),
+      },
     });
   });
 

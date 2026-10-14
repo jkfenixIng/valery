@@ -232,6 +232,17 @@ const fieldErrors = (paths: readonly string[]) =>
     paths.map(formField).map((name) => [name, fieldMessages[name]]),
   );
 
+/**
+ * Initial state of the editor for a stored product: rows that violate the
+ * current rules open with the offending fields already flagged.
+ */
+export const reviewFormState = (
+  validationIssues: readonly string[],
+): ProductFormState =>
+  validationIssues.length === 0
+    ? { status: 'idle' }
+    : { status: 'idle', fieldErrors: fieldErrors(validationIssues) };
+
 const unauthorized: ProductFormState = {
   status: 'error',
   message: 'No autorizado.',
@@ -245,6 +256,10 @@ const errorMessages: Readonly<
   PRODUCT_CATEGORY_NOT_FOUND: 'La categoría elegida ya no existe.',
   PRODUCT_NAME_TAKEN:
     'Ya existe un producto con ese nombre en la categoría, incluso si está archivado.',
+  PRODUCT_IN_USE_BY_BUNDLE:
+    'No se puede archivar: este producto está siendo usado por uno o más combos.',
+  PRODUCT_USED_AS_BUNDLE_COMPONENT:
+    'No se puede convertir en combo: este producto está siendo usado como componente de otro combo.',
 };
 
 const toState = (

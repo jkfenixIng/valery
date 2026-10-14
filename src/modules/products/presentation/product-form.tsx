@@ -15,6 +15,7 @@ import { Field, GlassButton } from '@/shared/ui';
 import { createProductAction, updateProductAction } from './actions';
 import {
   emptyProductValues,
+  reviewFormState,
   toProductFormValues,
   type ProductFormState,
   type ProductFormValues,
@@ -399,8 +400,6 @@ function OptionGroupsEditor({
   );
 }
 
-const initialState: ProductFormState = { status: 'idle' };
-
 const startingValues = (product?: EditableProduct): ProductFormValues =>
   product
     ? toProductFormValues(product.categoryId, product.input)
@@ -411,7 +410,10 @@ export function ProductForm(props: ProductFormProps) {
   const action = product
     ? updateProductAction.bind(null, product.id)
     : createProductAction;
-  const [state, formAction, pending] = useActionState(action, initialState);
+  const [state, formAction, pending] = useActionState(
+    action,
+    reviewFormState(product?.validationIssues ?? []),
+  );
   const values = state.values ?? startingValues(product);
 
   // Remount the editor on each server round trip so it reflects submitted values.
@@ -471,6 +473,13 @@ function ProductEditor({
 
   return (
     <form action={formAction} className="auth-form" noValidate>
+      {product && product.validationIssues.length > 0 ? (
+        <p role="alert">
+          Este producto tiene datos anteriores que no cumplen las reglas
+          actuales. Corrige los campos señalados y guarda los cambios para
+          actualizarlo.
+        </p>
+      ) : null}
       <SelectField
         error={errors.categoryId}
         label="Categoría"

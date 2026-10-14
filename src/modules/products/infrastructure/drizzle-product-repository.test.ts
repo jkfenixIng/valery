@@ -67,7 +67,32 @@ const candle = () => {
   return result.value;
 };
 
-const productRow = {
+const otherProduct = '77777777-7777-4777-8777-777777777777';
+
+/** Bundle with the wax supply and, optionally, one component product. */
+const bundle = (componentProductId?: string) => {
+  const result = Product.create({
+    ...candleInput,
+    calculationType: 'bundle',
+    optionGroups: [],
+    components: [
+      { kind: 'supply', referenceId: wax, quantity: '1' },
+      ...(componentProductId
+        ? [
+            {
+              kind: 'product' as const,
+              referenceId: componentProductId,
+              quantity: '1',
+            },
+          ]
+        : []),
+    ],
+  });
+  if (!result.ok) throw new Error('Invalid fixture.');
+  return result.value;
+};
+
+const productRow: typeof products.$inferSelect = {
   id: productId,
   categoryId,
   name: 'Vela',
@@ -89,11 +114,13 @@ const storedRows = new Map<unknown, unknown[]>([
     productComponents,
     [
       {
+        productId,
         supplyId: wax,
         componentProductId: null,
         // Legacy compatibility value that must never be read as the quantity.
         quantity: '0.333',
         quantityFraction: '250/1000',
+        position: 0,
       },
     ],
   ],
@@ -102,10 +129,12 @@ const storedRows = new Map<unknown, unknown[]>([
     [
       {
         id: 'group-1',
+        productId,
         name: 'Aroma',
         selection: 'single',
         isRequired: true,
         isVisible: true,
+        position: 0,
       },
     ],
   ],
@@ -114,39 +143,85 @@ const storedRows = new Map<unknown, unknown[]>([
     [
       {
         id: 'value-1',
+        optionGroupId: 'group-1',
         name: 'Lavanda',
         extraMaterialCostCop: 1500n,
         extraLaborMinutes: 5,
         suggestedExtraPriceCop: 4000n,
+        position: 0,
       },
     ],
   ],
-  [optionValueComponents, [{ supplyId: lavender, quantityFraction: '1/3' }]],
+  [
+    optionValueComponents,
+    [
+      {
+        optionValueId: 'value-1',
+        supplyId: lavender,
+        quantityFraction: '1/3',
+        position: 0,
+      },
+    ],
+  ],
 ]);
 
 type Inserted = { table: unknown; values: unknown };
 
 const fakeDatabase = (
-  options: { failOn?: unknown; updated?: boolean } = {},
+  options: {
+    failOn?: unknown;
+    updated?: boolean;
+    componentUsage?: boolean;
+    productRow?: typeof productRow;
+    /** Product rows returned by the `FOR UPDATE` integrity read. */
+    lockedRows?: { id: string; calculationType: string }[];
+  } = {},
 ) => {
   const inserted: Inserted[] = [];
   const deleted: unknown[] = [];
   const whereConditions: unknown[] = [];
+  const locks: {
+    strength: string;
+    insideTransaction: boolean;
+    condition: unknown;
+  }[] = [];
+  const usageChecks: { insideTransaction: boolean }[] = [];
+  let insideTransaction = false;
 
-  const select = vi.fn(() => ({
+  const select = vi.fn((fields?: unknown) => ({
     from: (table: unknown) => {
       const rows =
-        table === products ? [productRow] : (storedRows.get(table) ?? []);
+        table === products
+          ? options.updated === false
+            ? []
+            : [options.productRow ?? productRow]
+          : table === productComponents && fields
+            ? options.componentUsage
+              ? [{ id: 'usage-1' }]
+              : []
+            : (storedRows.get(table) ?? []);
       const result = Object.assign(Promise.resolve(rows), {
-        orderBy: () => Promise.resolve(rows),
+        orderBy: () => result,
+        for: (strength: string) => {
+          locks.push({ strength, insideTransaction, condition: lastWhere });
+          return Promise.resolve(options.lockedRows ?? rows);
+        },
+        limit: () => {
+          usageChecks.push({ insideTransaction });
+          return Promise.resolve(rows);
+        },
       });
-      return {
+      let lastWhere: unknown;
+      const query = {
         where: (condition: unknown) => {
           whereConditions.push(condition);
+          lastWhere = condition;
           return result;
         },
-        orderBy: () => Promise.resolve(rows),
+        innerJoin: () => query,
+        orderBy: () => result,
       };
+      return query;
     },
   }));
   const insert = vi.fn((table: unknown) => ({
@@ -182,15 +257,22 @@ const fakeDatabase = (
     },
   }));
   const tx = { select, insert, update, delete: remove };
-  const transaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
-    callback(tx),
-  );
+  const transaction = vi.fn(async (callback: (tx: unknown) => unknown) => {
+    insideTransaction = true;
+    try {
+      return await callback(tx);
+    } finally {
+      insideTransaction = false;
+    }
+  });
 
   return {
     database: { ...tx, transaction } as never,
     transaction,
     inserted,
     deleted,
+    locks,
+    usageChecks,
     whereConditions,
   };
 };
@@ -240,14 +322,34 @@ describe('DrizzleProductRepository', () => {
     });
   });
 
-  it('maps a foreign-key failure inside the tree and never writes the audit row', async () => {
-    const mock = fakeDatabase({ failOn: productComponents });
-    const repository = new DrizzleProductRepository(mock.database);
-
+  it('maps component and category foreign keys without writing the audit row', async () => {
+    const component = fakeDatabase({ failOn: productComponents });
+    const componentRepository = new DrizzleProductRepository(
+      component.database,
+    );
     await expect(
-      repository.create(categoryId, candle(), audit('product.created')),
+      componentRepository.create(
+        categoryId,
+        candle(),
+        audit('product.created'),
+      ),
     ).resolves.toEqual({ ok: false, reason: 'reference_not_found' });
-    expect(mock.inserted.map(({ table }) => table)).not.toContain(auditLogs);
+    expect(component.inserted.map(({ table }) => table)).not.toContain(
+      auditLogs,
+    );
+
+    const category = fakeDatabase();
+    const foreignKey = Object.assign(new Error('fk'), {
+      code: '23503',
+      constraint: 'products_category_id_categories_id_fk',
+    });
+    const categoryRepository = new DrizzleProductRepository({
+      ...(category.database as object),
+      transaction: () => Promise.reject(foreignKey),
+    } as never);
+    await expect(
+      categoryRepository.create(categoryId, candle(), audit('product.created')),
+    ).resolves.toEqual({ ok: false, reason: 'category_not_found' });
   });
 
   it('maps a unique violation to name_taken', async () => {
@@ -295,7 +397,7 @@ describe('DrizzleProductRepository', () => {
     ).resolves.toEqual({ ok: false, reason: 'not_found' });
     await expect(
       repository.archive(productId, audit('product.archived')),
-    ).resolves.toBe(false);
+    ).resolves.toBe('not_found');
     expect(mock.inserted).toEqual([]);
   });
 
@@ -308,13 +410,164 @@ describe('DrizzleProductRepository', () => {
     expect(sql(mock.whereConditions[0])).toContain(
       '"products"."deleted_at" is null',
     );
-    expect(product?.components[0].quantity.toString()).toBe('1/4');
+    expect(product?.input.components[0].quantity).toBe('1/4');
     expect(
-      product?.optionGroups[0].values[0].components[0].quantity.toString(),
+      product?.input.optionGroups[0].values[0].components[0].quantity,
     ).toBe('1/3');
-    expect(product?.optionGroups[0].values[0].suggestedExtraPriceCop).toBe(
-      4000,
+    expect(
+      product?.input.optionGroups[0].values[0].suggestedExtraPriceCop,
+    ).toBe(4000);
+  });
+
+  it('returns invalid legacy fixed-price rows for review without changing them', async () => {
+    const mock = fakeDatabase({
+      productRow: {
+        ...productRow,
+        calculationType: 'fixed_price',
+        salePriceCop: 0n,
+        marginBps: 10_000,
+      },
+    });
+    const repository = new DrizzleProductRepository(mock.database);
+
+    const product = await repository.findActive(productId);
+
+    expect(product).toMatchObject({
+      id: productId,
+      validationIssues: [
+        'ownMarginBps',
+        'fixedPriceCop',
+        'components',
+        'optionGroups',
+      ],
+      input: {
+        calculationType: 'fixed_price',
+        fixedPriceCop: 0,
+        ownMarginBps: 10_000,
+        components: [
+          { kind: 'supply', referenceId: wax, quantity: '250/1000' },
+        ],
+      },
+    });
+  });
+
+  it('flags rows that need review in the active list', async () => {
+    const legacy = fakeDatabase({
+      productRow: { ...productRow, calculationType: 'fixed_price' },
+    });
+    await expect(
+      new DrizzleProductRepository(legacy.database).listActive(),
+    ).resolves.toMatchObject([{ id: productId, needsReview: true }]);
+
+    const valid = fakeDatabase();
+    await expect(
+      new DrizzleProductRepository(valid.database).listActive(),
+    ).resolves.toMatchObject([{ id: productId, needsReview: false }]);
+  });
+
+  it('locks target and component rows inside the transaction before a bundle write', async () => {
+    const mock = fakeDatabase({
+      lockedRows: [
+        { id: productId, calculationType: 'base_with_extras' },
+        { id: otherProduct, calculationType: 'recipe' },
+      ],
+    });
+    const repository = new DrizzleProductRepository(mock.database);
+
+    await repository.update(
+      productId,
+      categoryId,
+      bundle(otherProduct),
+      audit('product.updated'),
     );
+
+    expect(mock.locks).toHaveLength(1);
+    expect(mock.locks[0]).toMatchObject({
+      strength: 'update',
+      insideTransaction: true,
+    });
+    const locked = dialect.sqlToQuery(mock.locks[0].condition as never);
+    expect(locked.sql).toContain('"products"."id" in');
+    expect(locked.params).toEqual(
+      expect.arrayContaining([productId, otherProduct]),
+    );
+    expect(mock.usageChecks).toEqual([{ insideTransaction: true }]);
+    expect(mock.inserted.at(-1)?.table).toBe(auditLogs);
+  });
+
+  it('rejects ineligible component products found under the lock', async () => {
+    const mock = fakeDatabase({
+      lockedRows: [
+        { id: productId, calculationType: 'base_with_extras' },
+        { id: otherProduct, calculationType: 'bundle' },
+      ],
+    });
+    const repository = new DrizzleProductRepository(mock.database);
+
+    await expect(
+      repository.create(
+        categoryId,
+        bundle(otherProduct),
+        audit('product.created'),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'component_ineligible',
+      fields: ['components.1.referenceId'],
+    });
+    await expect(
+      repository.update(
+        productId,
+        categoryId,
+        bundle(productId),
+        audit('product.updated'),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'component_ineligible',
+      fields: ['components.1.referenceId'],
+    });
+    expect(mock.inserted).toEqual([]);
+  });
+
+  it('rejects turning a product used as a bundle component into a bundle', async () => {
+    const mock = fakeDatabase({ componentUsage: true });
+    const repository = new DrizzleProductRepository(mock.database);
+
+    await expect(
+      repository.update(
+        productId,
+        categoryId,
+        bundle(),
+        audit('product.updated'),
+      ),
+    ).resolves.toEqual({ ok: false, reason: 'used_as_bundle_component' });
+    expect(mock.usageChecks).toEqual([{ insideTransaction: true }]);
+    expect(mock.inserted).toEqual([]);
+  });
+
+  it('rejects archiving a product used by an active bundle under a row lock', async () => {
+    const mock = fakeDatabase({ componentUsage: true });
+    const repository = new DrizzleProductRepository(mock.database);
+
+    await expect(
+      repository.archive(productId, audit('product.archived')),
+    ).resolves.toBe('in_use_by_bundle');
+    expect(mock.locks).toMatchObject([
+      { strength: 'update', insideTransaction: true },
+    ]);
+    expect(mock.usageChecks).toEqual([{ insideTransaction: true }]);
+    expect(mock.inserted).toEqual([]);
+  });
+
+  it('archives an unused product with its audit row', async () => {
+    const mock = fakeDatabase();
+    const repository = new DrizzleProductRepository(mock.database);
+
+    await expect(
+      repository.archive(productId, audit('product.archived')),
+    ).resolves.toBe('archived');
+    expect(mock.inserted.map(({ table }) => table)).toEqual([auditLogs]);
   });
 
   it('lists only active, non-bundle products as bundle candidates', async () => {
