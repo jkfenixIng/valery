@@ -5,6 +5,7 @@ export const auditEventTypes = [
   'auth.backup_code.used',
   'auth.password.changed',
   'auth.sign_out',
+  'pricing.settings.updated',
 ] as const;
 
 export type AuditEventType = (typeof auditEventTypes)[number];

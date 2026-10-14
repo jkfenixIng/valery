@@ -32,6 +32,35 @@ describe('AuditEvent', () => {
     },
   );
 
+  it('records a pricing settings update attributed to its actor only', () => {
+    const event = AuditEvent.create({
+      eventType: 'pricing.settings.updated',
+      outcome: 'success',
+      actorUserId: 'admin-1',
+    });
+
+    expect(event.toRecord()).toEqual({
+      eventType: 'pricing.settings.updated',
+      outcome: 'success',
+      actorUserId: 'admin-1',
+      subjectHash: null,
+      metadata: {},
+    });
+  });
+
+  it.each(['hourlyRateCop', 'marginBps', 'value'])(
+    'rejects pricing value %s in metadata',
+    (key) => {
+      expect(() =>
+        AuditEvent.create({
+          eventType: 'pricing.settings.updated',
+          outcome: 'success',
+          metadata: { [key]: 8000 },
+        }),
+      ).toThrow('Audit metadata contains a forbidden key.');
+    },
+  );
+
   it('rejects unknown event types', () => {
     expect(() =>
       AuditEvent.create({ eventType: 'auth.unknown', outcome: 'success' }),

@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { config } from '../../../config/env';
@@ -77,6 +77,88 @@ describeDatabase(
             .from(users)
             .where(inArray(users.email, [config.ADMIN_EMAIL.toLowerCase()]));
           expect(admins).toHaveLength(1);
+        }
+      } finally {
+        await closeDatabase();
+      }
+    });
+
+    it('upserts pricing settings idempotently with one audit row per save', async () => {
+      const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+      const { closeDatabase, database } = await import('./client');
+      const { auditLogs, settings, users } = await import('./schema');
+      const { AuditEvent } =
+        await import('../../../modules/auth/domain/audit-event');
+      const { DrizzlePricingSettingsRepository, pricingSettingKeys } =
+        await import('../../../modules/pricing/infrastructure/drizzle-pricing-settings-repository');
+
+      const actorId = 'f1-02-integration-actor';
+      const keys = Object.values(pricingSettingKeys);
+      // PRD section 17 sample parameters; test data only.
+      const record = {
+        hourlyRateCop: '8000',
+        marginBps: '4000',
+        overheadBps: '1000',
+        priceRoundingMultipleCop: '500',
+      };
+      const audit = () =>
+        AuditEvent.create({
+          eventType: 'pricing.settings.updated',
+          outcome: 'success',
+          actorUserId: actorId,
+        });
+      const actorAudits = () =>
+        database
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.actorUserId, actorId),
+              eq(auditLogs.eventType, 'pricing.settings.updated'),
+            ),
+          );
+
+      try {
+        await migrate(database, { migrationsFolder: 'drizzle' });
+        const previous = await database
+          .select()
+          .from(settings)
+          .where(inArray(settings.key, keys));
+        await database
+          .insert(users)
+          .values({
+            id: actorId,
+            name: 'Prueba',
+            email: `${actorId}@test.invalid`,
+          })
+          .onConflictDoNothing();
+        const repository = new DrizzlePricingSettingsRepository(database);
+
+        try {
+          await repository.save(record, audit());
+          await repository.save({ ...record, marginBps: '4050' }, audit());
+
+          expect(
+            await database
+              .select()
+              .from(settings)
+              .where(inArray(settings.key, keys)),
+          ).toHaveLength(4);
+          await expect(repository.load()).resolves.toEqual({
+            ...record,
+            marginBps: '4050',
+          });
+          const audits = await actorAudits();
+          expect(audits).toHaveLength(2);
+          expect(audits.map((row) => row.metadata)).toEqual([{}, {}]);
+        } finally {
+          await database
+            .delete(auditLogs)
+            .where(eq(auditLogs.actorUserId, actorId));
+          await database.delete(users).where(eq(users.id, actorId));
+          await database.delete(settings).where(inArray(settings.key, keys));
+          if (previous.length > 0)
+            await database.insert(settings).values(previous);
         }
       } finally {
         await closeDatabase();
