@@ -6,7 +6,7 @@ A thoughtful business workspace for turning handmade ideas into clear quotes, or
 
 ## Overview
 
-Valery is planned as a mobile-first platform for a small handmade business. It brings together:
+Valery is a mobile-first platform for a small handmade business. It brings together:
 
 - Quotes that account for materials, work, and profit.
 - A public catalog that guides customers to WhatsApp with their selection.
@@ -14,71 +14,100 @@ Valery is planned as a mobile-first platform for a small handmade business. It b
 - Inventory visibility for supplies and low-stock decisions.
 - Simple business numbers for sales, expenses, and earnings.
 
-## Project Status
+## Project status
 
-**Phase 0 — local-first.**
+**Phase 0 is closed locally.** The local-first foundation now includes layered architecture, validated configuration, Drizzle/PostgreSQL persistence, one seeded Better Auth administrator with mandatory TOTP, security controls and runbooks, accessible local UI primitives, and a Serwist PWA shell.
 
-The project is in its foundation stage. Deployment is intentionally deferred while the local architecture, security boundaries, and core workflow are established.
+Deployment and production operations are not approved yet. See [progress](./docs/progress.md) for the completed scope and deferred work.
 
-## Product Scope
+## Stack
 
-### Private workspace
+- Next.js 16, React 19, TypeScript, and Tailwind CSS.
+- Drizzle ORM with PostgreSQL.
+- Better Auth with argon2id passwords, mandatory TOTP, recovery codes, lockout, rate limits, and audit events.
+- Serwist PWA with a public shell and offline fallback.
 
-- Costing and quotations
-- Products, recipes, and supplies
-- Orders, customers, and inventory
-- Simple business numbers
+## Local setup
 
-### Public experience
-
-- Product catalog
-- Product options and starting prices
-- WhatsApp order handoff
-
-## Local development
-
-Prerequisites: Node.js 24, Corepack, and a native Windows PostgreSQL instance for database work.
+Prerequisites: Node.js 24, Corepack, and native Windows PostgreSQL for database work.
 
 ```bash
 corepack pnpm install
 Copy-Item .env.example .env.local
-corepack pnpm db:generate
-corepack pnpm db:setup
-corepack pnpm verify
 ```
 
-Set `DATABASE_URL` in `.env.local` to your native PostgreSQL development database. `db:setup` applies pending migrations and runs the idempotent seed; it does not reset or delete data. The verification command runs linting, strict type checking, unit tests, architecture rules, a production HTTP security-header smoke test, and the production build. Run `corepack pnpm audit:dependencies` separately; it fails on high or critical advisories. CI runs that audit and secret scanning only for `develop` pushes and pull requests.
+Set these values in untracked `.env.local`:
 
-## Administrator authentication
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 
-Set `BETTER_AUTH_SECRET` (at least 32 random characters), `BETTER_AUTH_URL`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` (at least 12 characters) in untracked `.env.local`. Then run `corepack pnpm db:setup`, or create only the idempotent administrator with `corepack pnpm db:seed:admin`. Public sign-up is disabled.
+Then prepare the local database with the committed migrations:
 
-The administrator must enroll an authenticator app at `/auth/two-factor/setup` before entering `/admin`. The setup page shows a one-time manual secret/otpauth URI and ten recovery codes; store those codes offline because each works only once. To recover a lost authenticator, the responsible adult signs in with a recovery code. If every recovery code is lost, reset TOTP by deleting that administrator's `two_factor` row and setting `user.two_factor_enabled` to `false` in a controlled PostgreSQL maintenance session, then sign in and enroll again. Record the intervention outside the application and rotate the administrator password afterward.
+```bash
+corepack pnpm db:setup
+```
 
-`corepack pnpm test:e2e` requires PostgreSQL plus all five authentication variables and is deliberately excluded from `verify`, which remains database-free.
+`db:setup` applies pending migrations, runs the idempotent example seed, and creates the administrator when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set; it does not delete data. To create only the administrator, run `corepack pnpm db:seed:admin`.
 
-## Security baseline
+Public sign-up is disabled. After the initial sign-in, enroll an authenticator app at `/auth/two-factor/setup` before accessing `/admin`.
 
-Global response headers include a per-request nonce CSP, framing protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy. The CSP permits `unsafe-eval` only during `next dev`; production emits neither `unsafe-eval` nor `unsafe-inline`. Nonces require dynamic rendering so Next can inject them during SSR. HSTS is intentionally deferred until an HTTPS deployment is approved.
+## Scripts
 
-## Local PWA
+| Script                                | Purpose                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| `corepack pnpm dev`                   | Start Next.js and watch the Serwist service worker.                             |
+| `corepack pnpm build`                 | Create the production build and service worker.                                 |
+| `corepack pnpm start`                 | Start the production server.                                                    |
+| `corepack pnpm lint`                  | Run ESLint.                                                                     |
+| `corepack pnpm format`                | Check formatting with Prettier.                                                 |
+| `corepack pnpm typecheck`             | Run strict TypeScript checks.                                                   |
+| `corepack pnpm test`                  | Run Vitest unit tests.                                                          |
+| `corepack pnpm test:coverage`         | Run unit tests with coverage.                                                   |
+| `corepack pnpm test:architecture`     | Validate layer and environment-access rules.                                    |
+| `corepack pnpm test:security-headers` | Smoke-test production security headers.                                         |
+| `corepack pnpm test:pwa`              | Smoke-test the production PWA endpoints.                                        |
+| `corepack pnpm test:e2e`              | Run Playwright E2E tests against PostgreSQL and the authentication environment. |
+| `corepack pnpm audit:dependencies`    | Fail on high or critical dependency advisories.                                 |
+| `corepack pnpm scan:secrets`          | Run the installed Gitleaks binary through the repository wrapper.               |
+| `corepack pnpm db:generate`           | Generate Drizzle migrations.                                                    |
+| `corepack pnpm db:migrate`            | Apply pending database migrations.                                              |
+| `corepack pnpm db:seed`               | Run the idempotent example seed.                                                |
+| `corepack pnpm db:seed:admin`         | Create the seeded administrator idempotently.                                   |
+| `corepack pnpm db:setup`              | Apply migrations and run the idempotent seeds.                                  |
+| `corepack pnpm verify`                | Run the local quality gate.                                                     |
 
-`corepack pnpm build` builds the Serwist service worker after Next prerendering and copies generated public assets into the standalone output. `corepack pnpm test:pwa` verifies that the production server serves the manifest, `/sw.js`, and `/~offline`.
+## Quality gate
 
-The service worker precaches only the public shell build assets, the three local icons, the manifest, and the `/~offline` fallback. Network-only navigation handling reaches that fallback while caching nothing at runtime: it never caches `/admin`, `/auth`, `/api`, custom `GET` responses, requests with cookies or `Authorization`, non-`GET` requests, or runtime documents. Service-worker registration is performed by a client component, not an inline script, so it remains compatible with the nonce CSP. The PWA is local-only; installation and offline behavior still require a browser with service-worker support and an HTTPS origin outside localhost.
+Run `corepack pnpm verify` before delivery. It runs lint, typecheck, unit tests, architecture checks, production build, security-header smoke tests, and PWA smoke tests. Run `corepack pnpm format` separately for formatting.
 
-Report a vulnerability privately as described in [SECURITY.md](./SECURITY.md). The repository is local-first Phase 0 and does not offer a security SLA, bounty, or public production service.
+`test:e2e` is written but deferred to the final testing phase and intentionally excluded from `verify`.
 
-Run an installed Gitleaks binary with `corepack pnpm scan:secrets`; the command is opt-in and clearly fails when the binary is unavailable. CI uses the SHA-pinned official Gitleaks action, without adding an npm wrapper.
+## Security and PWA
 
-`docker-compose.yml` is versioned only as a portable PostgreSQL contract for future Linux CI validation. Docker Desktop is not required for daily Windows development and is not started by these instructions.
+The production baseline includes a request-nonce CSP, framing, MIME-sniffing, referrer, and permissions protections. HSTS remains deferred until an HTTPS hosting decision is approved. The PWA only precaches public shell assets and uses no runtime cache for authenticated or private traffic; installation and non-localhost offline validation require HTTPS.
+
+For security controls and incident guidance, read [Security](./docs/security.md); report vulnerabilities privately as described in [SECURITY.md](./SECURITY.md). Operational procedures are in the [runbooks](./docs/runbooks/).
+
+## Deferred items
+
+- Application Dockerfile and Compose runtime.
+- Linux CI portability and runtime Docker validation.
+- Vercel and Neon preview environments.
+- Backup, restore, retention, and recovery verification.
+- HSTS after an HTTPS hosting decision.
+- PWA installation and offline validation over HTTPS.
+- The `braces` advisory (`GHSA-vfj7-8cjw-p6xm`) until an upstream patch is available.
 
 ## Documentation
 
 - [Product Requirements Document](./PRD%20-%20Plataforma%20de%20negocio%20de%20Valery%20%28cotizaciones%2C%20cat%C3%A1logo%2C%20pedidos%20e%20inventario%29.md)
 - [Architecture decisions](./docs/adr/)
 - [Implementation progress](./docs/progress.md)
-- [Backup and CI portability pending](./docs/backup-and-ci-pending.md)
+- [Security](./docs/security.md)
+- [Runbooks](./docs/runbooks/)
 
 ## License
 
