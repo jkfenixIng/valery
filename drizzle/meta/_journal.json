@@ -29,6 +29,27 @@
       "when": 1791941928066,
       "tag": "0003_windy_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791945874014,
+      "tag": "0004_products_recipes_extras_bundles",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791945888345,
+      "tag": "0005_backfill_component_quantity_fraction",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791945936886,
+      "tag": "0006_require_component_quantity_fraction",
+      "breakpoints": true
     }
   ]
 }

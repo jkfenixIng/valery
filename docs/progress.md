@@ -22,7 +22,7 @@ The public DTO guard `assertPublicDto` is available but not yet applied, because
 - **F1-01:** pure pricing engine and golden cases are complete locally.
 - **F1-02:** persisted pricing settings at `/admin/ajustes` are complete locally.
 - **F1-03:** supplies can be created, edited, listed while active, and archived at `/admin/insumos`; mutations require a rechecked TOTP-enabled admin and are audited without supply details. Supply name/unit limits (120/32 trimmed characters) are technical safeguards enforced by the domain and form boundary, not business rules. The unchanged unique `(category_id, name)` constraint means an archived same-name supply cannot be recreated.
-- **F1-04:** product components are deliberately untouched. Their exact fractional recipe quantity will use a separate canonical string field and parse to `Quantity` at the API/application boundary; no component fraction field is in F1-03.
+- **F1-04:** products at `/admin/productos` support recipes, bases with extras, bundles, and fixed prices. Exact component quantities persist as authoritative `quantity_fraction` text and become normalized `Quantity` values at the application boundary; legacy numeric `quantity` is compatibility-only. The generated DDL migrations `0004` and `0006` surround custom data migration `0005`, which backfills legacy decimals as exact `n/1000` rationals without guessing semantic fractions. Product cost recalculation remains F1-05.
 
 Persistence adapters are verified with mocked Drizzle clients; no test opens a database connection during development (see ADR-002).
 

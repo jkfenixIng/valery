@@ -1,0 +1,1 @@
+ALTER TABLE "product_components" ALTER COLUMN "quantity_fraction" SET NOT NULL;

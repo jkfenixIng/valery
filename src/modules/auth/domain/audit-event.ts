@@ -9,6 +9,9 @@ export const auditEventTypes = [
   'supply.created',
   'supply.updated',
   'supply.archived',
+  'product.created',
+  'product.updated',
+  'product.archived',
 ] as const;
 
 export type AuditEventType = (typeof auditEventTypes)[number];

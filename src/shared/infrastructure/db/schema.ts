@@ -189,6 +189,22 @@ export const supplies = pgTable(
   ],
 );
 
+/**
+ * Exact positive rational as `numerator/denominator` text. Unreduced forms
+ * (`500/1000`) are accepted; the application normalizes through `Quantity`.
+ */
+const canonicalFraction = (column: unknown) =>
+  sql`${column} ~ '^[1-9][0-9]*/[1-9][0-9]*$'`;
+
+const timestamps = () => ({
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const products = pgTable(
   'products',
   {
@@ -198,10 +214,30 @@ export const products = pgTable(
       .references(() => categories.id),
     name: text('name').notNull(),
     description: text('description').notNull(),
-    salePriceCop: bigint('sale_price_cop', { mode: 'bigint' }).notNull(),
-    marginBps: integer('margin_bps').notNull(),
+    /**
+     * Legacy rows predate calculation types; they all carry a manual sale
+     * price, so the default classifies them as fixed-price products.
+     */
+    calculationType: text('calculation_type').notNull().default('fixed_price'),
+    /** Manual price of a `fixed_price` product; null for calculated types. */
+    salePriceCop: bigint('sale_price_cop', { mode: 'bigint' }),
+    /** Optional own margin; null uses the default margin from settings. */
+    marginBps: integer('margin_bps'),
+    baseLaborMinutes: integer('base_labor_minutes').notNull().default(0),
+    /** Whole portions a recipe yields; the domain requires it for recipes. */
+    recipeYieldPortions: integer('recipe_yield_portions'),
+    /** Stored flag only; the public catalog is not built yet. */
+    isPublished: boolean('is_published').notNull().default(false),
+    ...timestamps(),
+    /** Archive marker; archived rows stay for history and are never listed. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
+    // Serves the active catalog query: WHERE deleted_at IS NULL ORDER BY name.
+    index('products_active_name_idx')
+      .on(table.name)
+      .where(sql`${table.deletedAt} IS NULL`),
+    // The unique (category_id, name) index already covers category lookups.
     check(
       'products_sale_price_cop_nonnegative',
       positiveMoney(table.salePriceCop),
@@ -215,6 +251,22 @@ export const products = pgTable(
     check(
       'products_description_nonempty',
       sql`length(trim(${table.description})) > 0`,
+    ),
+    check(
+      'products_calculation_type_valid',
+      sql`${table.calculationType} IN ('recipe', 'base_with_extras', 'bundle', 'fixed_price')`,
+    ),
+    check(
+      'products_fixed_price_has_sale_price',
+      sql`${table.calculationType} <> 'fixed_price' OR ${table.salePriceCop} IS NOT NULL`,
+    ),
+    check(
+      'products_base_labor_minutes_nonnegative',
+      sql`${table.baseLaborMinutes} >= 0`,
+    ),
+    check(
+      'products_recipe_yield_portions_positive',
+      sql`${table.recipeYieldPortions} IS NULL OR ${table.recipeYieldPortions} > 0`,
     ),
   ],
 );
@@ -230,16 +282,123 @@ export const productComponents = pgTable(
     componentProductId: uuid('component_product_id').references(
       () => products.id,
     ),
-    quantity: numeric('quantity', { precision: 14, scale: 3 }).notNull(),
+    /**
+     * Compatibility only: `numeric(14,3)` cannot hold 1/3. New writes leave
+     * it null and reads never rebuild a `Quantity` from it.
+     */
+    quantity: numeric('quantity', { precision: 14, scale: 3 }),
+    /** Authoritative exact quantity; legacy rows backfilled by 0005. */
+    quantityFraction: text('quantity_fraction').notNull(),
+    position: integer('position').notNull().default(0),
   },
   (table) => [
+    index('product_components_product_id_idx').on(table.productId),
+    index('product_components_supply_id_idx').on(table.supplyId),
+    index('product_components_component_product_id_idx').on(
+      table.componentProductId,
+    ),
     check(
       'product_components_quantity_positive',
       positiveQuantity(table.quantity),
     ),
     check(
+      'product_components_quantity_fraction_canonical',
+      canonicalFraction(table.quantityFraction),
+    ),
+    check(
       'product_components_one_component_source',
       sql`(${table.supplyId} IS NOT NULL AND ${table.componentProductId} IS NULL) OR (${table.supplyId} IS NULL AND ${table.componentProductId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const optionGroups = pgTable(
+  'option_groups',
+  {
+    id: appId(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    selection: text('selection').notNull(),
+    isRequired: boolean('is_required').notNull(),
+    isVisible: boolean('is_visible').notNull(),
+    position: integer('position').notNull(),
+  },
+  (table) => [
+    index('option_groups_product_id_idx').on(table.productId),
+    unique('option_groups_product_id_name_unique').on(
+      table.productId,
+      table.name,
+    ),
+    check('option_groups_name_nonempty', sql`length(trim(${table.name})) > 0`),
+    check(
+      'option_groups_selection_valid',
+      sql`${table.selection} IN ('single', 'multiple')`,
+    ),
+  ],
+);
+
+export const optionValues = pgTable(
+  'option_values',
+  {
+    id: appId(),
+    optionGroupId: uuid('option_group_id')
+      .notNull()
+      .references(() => optionGroups.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    extraMaterialCostCop: bigint('extra_material_cost_cop', {
+      mode: 'bigint',
+    }).notNull(),
+    extraLaborMinutes: integer('extra_labor_minutes').notNull(),
+    suggestedExtraPriceCop: bigint('suggested_extra_price_cop', {
+      mode: 'bigint',
+    }),
+    position: integer('position').notNull(),
+  },
+  (table) => [
+    index('option_values_option_group_id_idx').on(table.optionGroupId),
+    unique('option_values_option_group_id_name_unique').on(
+      table.optionGroupId,
+      table.name,
+    ),
+    check('option_values_name_nonempty', sql`length(trim(${table.name})) > 0`),
+    check(
+      'option_values_extra_material_cost_cop_nonnegative',
+      positiveMoney(table.extraMaterialCostCop),
+    ),
+    check(
+      'option_values_extra_labor_minutes_nonnegative',
+      sql`${table.extraLaborMinutes} >= 0`,
+    ),
+    check(
+      'option_values_suggested_extra_price_cop_nonnegative',
+      positiveMoney(table.suggestedExtraPriceCop),
+    ),
+  ],
+);
+
+export const optionValueComponents = pgTable(
+  'option_value_components',
+  {
+    id: appId(),
+    optionValueId: uuid('option_value_id')
+      .notNull()
+      .references(() => optionValues.id, { onDelete: 'cascade' }),
+    supplyId: uuid('supply_id')
+      .notNull()
+      .references(() => supplies.id),
+    quantityFraction: text('quantity_fraction').notNull(),
+    position: integer('position').notNull(),
+  },
+  (table) => [
+    index('option_value_components_option_value_id_idx').on(
+      table.optionValueId,
+    ),
+    index('option_value_components_supply_id_idx').on(table.supplyId),
+    check(
+      'option_value_components_quantity_fraction_canonical',
+      canonicalFraction(table.quantityFraction),
     ),
   ],
 );

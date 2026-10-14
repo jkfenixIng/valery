@@ -18,6 +18,8 @@ Valery is a mobile-first platform for a small handmade business. It brings toget
 
 **Phase 0 is closed locally.** The local-first foundation now includes layered architecture, validated configuration, Drizzle/PostgreSQL persistence, one seeded Better Auth administrator with mandatory TOTP, security controls and runbooks, accessible local UI primitives, and a Serwist PWA shell.
 
+Products can now be managed at `/admin/productos`: recipes, bases with extras, bundles, and fixed-price products. Component quantities accept decimal or fractional text and persist exactly; product cost recalculation remains F1-05.
+
 Deployment and production operations are not approved yet. See [progress](./docs/progress.md) for the completed scope and deferred work.
 
 ## Stack

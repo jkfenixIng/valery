@@ -89,6 +89,7 @@ export const seedDatabase = async (
         categoryId: seedIds.cakes,
         name: 'Torta',
         description: 'Torta de ejemplo.',
+        calculationType: 'fixed_price',
         salePriceCop: 75000n,
         marginBps: 3500,
       },
@@ -97,6 +98,7 @@ export const seedDatabase = async (
         categoryId: seedIds.desserts,
         name: 'Postre individual',
         description: 'Brownie individual.',
+        calculationType: 'fixed_price',
         salePriceCop: 8500n,
         marginBps: 4000,
       },
@@ -105,7 +107,8 @@ export const seedDatabase = async (
         categoryId: seedIds.desserts,
         name: 'Bolsa de regalo',
         description: 'Bolsa con vela y brownie.',
-        salePriceCop: 13000n,
+        calculationType: 'bundle',
+        salePriceCop: null,
         marginBps: 3000,
       },
     ]) {
@@ -118,6 +121,7 @@ export const seedDatabase = async (
             id: product.id,
             categoryId: product.categoryId,
             description: product.description,
+            calculationType: product.calculationType,
             salePriceCop: product.salePriceCop,
             marginBps: product.marginBps,
           },
@@ -130,14 +134,16 @@ export const seedDatabase = async (
         productId: seedIds.products.giftBag,
         supplyId: seedIds.supplies.candle,
         componentProductId: null,
-        quantity: '1.000',
+        quantity: null,
+        quantityFraction: '1/1',
       },
       {
         id: seedIds.components.giftBagBrownie,
         productId: seedIds.products.giftBag,
         supplyId: null,
         componentProductId: seedIds.products.brownie,
-        quantity: '1.000',
+        quantity: null,
+        quantityFraction: '1/1',
       },
     ]) {
       await transaction
@@ -151,6 +157,7 @@ export const seedDatabase = async (
             supplyId: component.supplyId,
             componentProductId: component.componentProductId,
             quantity: component.quantity,
+            quantityFraction: component.quantityFraction,
           },
         });
     }

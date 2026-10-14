@@ -94,6 +94,26 @@ describe('AuditEvent', () => {
     },
   );
 
+  it.each(['product.created', 'product.updated', 'product.archived'] as const)(
+    'records %s with only the product form method',
+    (eventType) => {
+      expect(
+        AuditEvent.create({
+          eventType,
+          outcome: 'success',
+          actorUserId: 'admin-1',
+          metadata: { method: 'admin_product_form' },
+        }).toRecord(),
+      ).toEqual({
+        eventType,
+        outcome: 'success',
+        actorUserId: 'admin-1',
+        subjectHash: null,
+        metadata: { method: 'admin_product_form' },
+      });
+    },
+  );
+
   it('rejects unknown event types', () => {
     expect(() =>
       AuditEvent.create({ eventType: 'auth.unknown', outcome: 'success' }),
