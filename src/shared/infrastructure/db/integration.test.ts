@@ -164,5 +164,112 @@ describeDatabase(
         await closeDatabase();
       }
     });
+
+    it('creates, edits and archives supplies atomically with audit rows', async () => {
+      const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+      const { closeDatabase, database } = await import('./client');
+      const { auditLogs, categories, supplies, users } =
+        await import('./schema');
+      const { AuditEvent } =
+        await import('../../../modules/auth/domain/audit-event');
+      const { DrizzleSupplyRepository } =
+        await import('../../../modules/supplies/infrastructure/drizzle-supply-repository');
+
+      const actorId = 'f1-03-integration-actor';
+      const categoryName = 'f1-03-integration-category';
+      const audit = (
+        eventType: 'supply.created' | 'supply.updated' | 'supply.archived',
+      ) =>
+        AuditEvent.create({
+          eventType,
+          outcome: 'success',
+          actorUserId: actorId,
+          metadata: { method: 'admin_supply_form' },
+        });
+      const details = { name: 'Harina', unit: 'g', unitCostCop: 12 };
+
+      try {
+        await migrate(database, { migrationsFolder: 'drizzle' });
+        await database
+          .insert(users)
+          .values({
+            id: actorId,
+            name: 'Prueba',
+            email: `${actorId}@test.invalid`,
+          })
+          .onConflictDoNothing();
+        const [category] = await database
+          .insert(categories)
+          .values({ name: categoryName })
+          .returning();
+        const repository = new DrizzleSupplyRepository(database);
+
+        try {
+          const created = await repository.create(
+            category.id,
+            details,
+            audit('supply.created'),
+          );
+          if (!created.ok) throw new Error('Supply was not created.');
+          const id = created.supply.id;
+
+          await expect(
+            repository.create(category.id, details, audit('supply.created')),
+          ).resolves.toEqual({ ok: false, reason: 'name_taken' });
+          await expect(
+            repository.update(
+              id,
+              { ...details, unitCostCop: 15 },
+              audit('supply.updated'),
+            ),
+          ).resolves.toMatchObject({ ok: true, supply: { unitCostCop: 15 } });
+          await expect(
+            repository.archive(id, audit('supply.archived')),
+          ).resolves.toBe(true);
+          await expect(
+            repository.archive(id, audit('supply.archived')),
+          ).resolves.toBe(false);
+          await expect(
+            repository.update(id, details, audit('supply.updated')),
+          ).resolves.toEqual({ ok: false, reason: 'not_found' });
+          await expect(repository.findActive(id)).resolves.toBeNull();
+
+          const [row] = await database
+            .select()
+            .from(supplies)
+            .where(eq(supplies.id, id));
+          expect(row.deletedAt).toBeInstanceOf(Date);
+          expect(row.updatedAt.getTime()).toBeGreaterThanOrEqual(
+            row.createdAt.getTime(),
+          );
+
+          const audits = await database
+            .select()
+            .from(auditLogs)
+            .where(eq(auditLogs.actorUserId, actorId));
+          expect(audits.map((entry) => entry.eventType).sort()).toEqual([
+            'supply.archived',
+            'supply.created',
+            'supply.updated',
+          ]);
+          expect(
+            new Set(audits.map((entry) => JSON.stringify(entry.metadata))),
+          ).toEqual(new Set([JSON.stringify({ method: 'admin_supply_form' })]));
+        } finally {
+          await database
+            .delete(auditLogs)
+            .where(eq(auditLogs.actorUserId, actorId));
+          await database
+            .delete(supplies)
+            .where(eq(supplies.categoryId, category.id));
+          await database
+            .delete(categories)
+            .where(eq(categories.id, category.id));
+          await database.delete(users).where(eq(users.id, actorId));
+        }
+      } finally {
+        await closeDatabase();
+      }
+    });
   },
 );

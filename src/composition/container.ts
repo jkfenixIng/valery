@@ -14,11 +14,32 @@ import {
   type PricingSettingsInput,
 } from '@/modules/pricing/domain/pricing-settings';
 import { createPricingSettingsRepository } from '@/modules/pricing/infrastructure';
+import {
+  archiveSupply,
+  createSupply,
+  getActiveSupply,
+  listActiveSupplies,
+  listSupplyCategories,
+  updateSupply,
+} from '@/modules/supplies/application/supplies';
+import {
+  supplyLimits,
+  type SupplyInput,
+} from '@/modules/supplies/domain/supply';
+import { createSupplyRepository } from '@/modules/supplies/infrastructure';
 
 const authentication = createAuthenticationGateway();
 const pricingSettings = createPricingSettingsRepository();
+const supplyRepository = createSupplyRepository();
 
 export type { PricingSettingsInput };
+export type {
+  SupplyCategory,
+  SupplyRecord,
+} from '@/modules/supplies/application/supply-repository';
+export type { SupplyMutationError } from '@/modules/supplies/application/supplies';
+export type { SupplyInput };
+export type SupplyLimits = typeof supplyLimits;
 
 export type PricingSettingsForm =
   | Readonly<{ status: 'configured'; values: PricingSettingsInput }>
@@ -54,5 +75,25 @@ export const container = {
     },
     updateSettings: (actorUserId: string | null, input: PricingSettingsInput) =>
       updatePricingSettings(pricingSettings, { actorUserId, input }),
+  },
+  supplies: {
+    /** Technical length safeguards; the domain enforces them authoritatively. */
+    limits: supplyLimits,
+    listActive: () => listActiveSupplies(supplyRepository),
+    listCategories: () => listSupplyCategories(supplyRepository),
+    getActive: (supplyId: string) =>
+      getActiveSupply(supplyRepository, supplyId),
+    create: (
+      actorUserId: string | null,
+      categoryId: string,
+      input: SupplyInput,
+    ) => createSupply(supplyRepository, { actorUserId, categoryId, input }),
+    update: (
+      actorUserId: string | null,
+      supplyId: string,
+      input: SupplyInput,
+    ) => updateSupply(supplyRepository, { actorUserId, supplyId, input }),
+    archive: (actorUserId: string | null, supplyId: string) =>
+      archiveSupply(supplyRepository, { actorUserId, supplyId }),
   },
 } as const;

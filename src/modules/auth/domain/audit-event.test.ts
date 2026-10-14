@@ -61,6 +61,39 @@ describe('AuditEvent', () => {
     },
   );
 
+  it.each(['supply.created', 'supply.updated', 'supply.archived'] as const)(
+    'records %s without supply details',
+    (eventType) => {
+      expect(
+        AuditEvent.create({
+          eventType,
+          outcome: 'success',
+          actorUserId: 'admin-1',
+          metadata: { method: 'admin_supply_form' },
+        }).toRecord(),
+      ).toEqual({
+        eventType,
+        outcome: 'success',
+        actorUserId: 'admin-1',
+        subjectHash: null,
+        metadata: { method: 'admin_supply_form' },
+      });
+    },
+  );
+
+  it.each(['name', 'unit', 'unitCostCop', 'supplyId'])(
+    'rejects supply detail %s in metadata',
+    (key) => {
+      expect(() =>
+        AuditEvent.create({
+          eventType: 'supply.created',
+          outcome: 'success',
+          metadata: { [key]: 'not stored' },
+        }),
+      ).toThrow('Audit metadata contains a forbidden key.');
+    },
+  );
+
   it('rejects unknown event types', () => {
     expect(() =>
       AuditEvent.create({ eventType: 'auth.unknown', outcome: 'success' }),

@@ -17,6 +17,13 @@ The public DTO guard `assertPublicDto` is available but not yet applied, because
 
 `test:e2e` is written but deferred to the final testing phase; it was not run for this local closure.
 
+## Phase 1 — in progress
+
+- **F1-01:** pure pricing engine and golden cases are complete locally.
+- **F1-02:** persisted pricing settings at `/admin/ajustes` are complete locally.
+- **F1-03:** supplies can be created, edited, listed while active, and archived at `/admin/insumos`; mutations require a rechecked TOTP-enabled admin and are audited without supply details. Supply name/unit limits (120/32 trimmed characters) are technical safeguards enforced by the domain and form boundary, not business rules. The unchanged unique `(category_id, name)` constraint means an archived same-name supply cannot be recreated.
+- **F1-04:** product components are deliberately untouched. Their exact fractional recipe quantity will use a separate canonical string field and parse to `Quantity` at the API/application boundary; no component fraction field is in F1-03.
+
 ## Explicitly deferred
 
 - Application Dockerfile and app Compose runtime.

@@ -5,6 +5,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   integer,
   jsonb,
   numeric,
@@ -162,14 +163,28 @@ export const supplies = pgTable(
     name: text('name').notNull(),
     unit: text('unit').notNull(),
     unitCostCop: bigint('unit_cost_cop', { mode: 'bigint' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Archive marker; archived rows stay for history and are never listed. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
+    // Serves the active catalog query: WHERE deleted_at IS NULL ORDER BY name.
+    index('supplies_active_name_idx')
+      .on(table.name)
+      .where(sql`${table.deletedAt} IS NULL`),
     check(
       'supplies_unit_cost_cop_nonnegative',
       positiveMoney(table.unitCostCop),
     ),
     check('supplies_name_nonempty', sql`length(trim(${table.name})) > 0`),
     check('supplies_unit_nonempty', sql`length(trim(${table.unit})) > 0`),
+    // Unchanged policy: covers archived rows too, so an archived name cannot
+    // be reused in the same category.
     unique('supplies_category_id_name_unique').on(table.categoryId, table.name),
   ],
 );
