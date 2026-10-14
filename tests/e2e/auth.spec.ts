@@ -48,26 +48,6 @@ test('returns the same error for a wrong password and an unknown account', async
   await expect(page.getByRole('alert')).toHaveText(genericError);
 });
 
-test('locks an account after five failed passwords without revealing the lock', async ({
-  request,
-}) => {
-  const email = `lockout-${Date.now()}@example.test`;
-  const attempt = () =>
-    request.post('/api/auth/sign-in/email', {
-      data: { email, password: 'definitely-the-wrong-password' },
-      headers: {
-        origin: baseUrl,
-        'x-forwarded-for': `10.0.0.${Date.now() % 250}`,
-      },
-    });
-
-  for (let failure = 0; failure < 5; failure += 1) {
-    expect((await attempt()).status()).toBe(401);
-  }
-  const blocked = await attempt();
-  expect([401, 429]).toContain(blocked.status());
-});
-
 test('enrolls TOTP and reaches the admin panel', async ({ page }) => {
   await signIn(page, adminEmail, adminPassword);
   await expect(page).toHaveURL(/\/auth\/two-factor\/setup$/);
@@ -109,4 +89,29 @@ test('accepts each backup code only once', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText(
     'Código de recuperación inválido.',
   );
+});
+
+// Runs last: it locks the only seeded administrator for 15 minutes, so a
+// re-run must wait for the lock to expire.
+test('locks an account after five failed passwords without revealing the lock', async ({
+  request,
+}) => {
+  // A distinct forwarded IP per attempt keeps the per-IP rate limit (429) out
+  // of the way, so only the per-account lockout can reject the final attempt.
+  const ipBase = `10.${Date.now() % 250}.0`;
+  const attempt = (password: string, host: number) =>
+    request.post('/api/auth/sign-in/email', {
+      data: { email: adminEmail, password },
+      headers: { origin: baseUrl, 'x-forwarded-for': `${ipBase}.${host}` },
+    });
+
+  for (let failure = 1; failure <= 5; failure += 1) {
+    expect(
+      (await attempt('definitely-the-wrong-password', failure)).status(),
+    ).toBe(401);
+  }
+
+  const locked = await attempt(adminPassword, 99);
+  expect(locked.status()).toBe(401);
+  expect((await locked.json()).message).toBe(genericError);
 });
