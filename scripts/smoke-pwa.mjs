@@ -4,6 +4,40 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
 const port = 3101;
+const cachingStrategies = [
+  'CacheFirst',
+  'CacheOnly',
+  'NetworkFirst',
+  'StaleWhileRevalidate',
+  'defaultCache',
+];
+
+// Minified names change between builds, so assert on the emitted shape: the
+// only runtime route is navigations handled by a class that never reads or
+// writes a cache (NetworkOnly).
+const hasNetworkOnlyNavigationRoute = (body) => {
+  const route = body.match(
+    /runtimeCaching:\[\{matcher:\(\{request:(\w+)\}\)=>\1\.mode==="navigate",handler:new ([\w$]+)\}\]/,
+  );
+  if (!route) {
+    return false;
+  }
+  const start = body.indexOf(`${route[2]}=class extends`);
+  const end = body.indexOf(';var ', start);
+  const handlerClass = body.slice(start, end);
+  return (
+    start !== -1 &&
+    end !== -1 &&
+    handlerClass.includes('Timed out the network response') &&
+    !handlerClass.includes('cacheMatch') &&
+    !handlerClass.includes('CachePut')
+  );
+};
+
+const hasOfflineDocumentFallback = (body) =>
+  /fallbacks:\{entries:\[\{url:"\/~offline",matcher\(\{request:(\w+)\}\)\{return \1\.destination==="document"\}\}\]\}/.test(
+    body,
+  );
 const standaloneServer = fileURLToPath(
   new URL('../.next/standalone/server.js', import.meta.url),
 );
@@ -57,10 +91,12 @@ try {
         manifestBody.icons?.length !== 3 ||
         !serviceWorkerBody.includes('skipWaiting') ||
         !serviceWorkerBody.includes('clientsClaim') ||
+        !hasNetworkOnlyNavigationRoute(serviceWorkerBody) ||
+        !hasOfflineDocumentFallback(serviceWorkerBody) ||
         serviceWorkerBody.includes('/admin') ||
         serviceWorkerBody.includes('/auth') ||
         serviceWorkerBody.includes('/api') ||
-        serviceWorkerSource.includes('runtimeCaching') ||
+        cachingStrategies.some((name) => serviceWorkerSource.includes(name)) ||
         serwistConfig.includes('public/**/*') ||
         serwistConfig.includes('precachePrerendered: true')
       ) {

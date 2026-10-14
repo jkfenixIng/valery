@@ -9,5 +9,6 @@ export default serwist({
     'public/manifest.webmanifest',
     '.next/static/**/*.{js,css,ico,png,svg,webp,json,webmanifest}',
   ],
+  // Navigations use NetworkOnly in src/app/sw.ts; this fallback remains precached.
   additionalPrecacheEntries: [{ url: '/~offline', revision: null }],
 });

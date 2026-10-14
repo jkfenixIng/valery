@@ -65,7 +65,7 @@ Global response headers include a per-request nonce CSP, framing protection, MIM
 
 `corepack pnpm build` builds the Serwist service worker after Next prerendering and copies generated public assets into the standalone output. `corepack pnpm test:pwa` verifies that the production server serves the manifest, `/sw.js`, and `/~offline`.
 
-The service worker precaches only the public shell build assets, the three local icons, the manifest, and the `/~offline` fallback. It has no runtime caching: it never caches `/admin`, `/auth`, `/api`, custom `GET` responses, requests with cookies or `Authorization`, non-`GET` requests, or runtime documents. Service-worker registration is performed by a client component, not an inline script, so it remains compatible with the nonce CSP. The PWA is local-only; installation and offline behavior still require a browser with service-worker support and an HTTPS origin outside localhost.
+The service worker precaches only the public shell build assets, the three local icons, the manifest, and the `/~offline` fallback. Network-only navigation handling reaches that fallback while caching nothing at runtime: it never caches `/admin`, `/auth`, `/api`, custom `GET` responses, requests with cookies or `Authorization`, non-`GET` requests, or runtime documents. Service-worker registration is performed by a client component, not an inline script, so it remains compatible with the nonce CSP. The PWA is local-only; installation and offline behavior still require a browser with service-worker support and an HTTPS origin outside localhost.
 
 Report a vulnerability privately as described in [SECURITY.md](./SECURITY.md). The repository is local-first Phase 0 and does not offer a security SLA, bounty, or public production service.
 
